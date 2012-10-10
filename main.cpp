@@ -15,13 +15,11 @@ void c64Init(void);
 
 enum {
 	MIXRATE = 44100,
-	RECORD_LENGTH = 50 * 60 * 5
+	FRAMES_PER_SECOND = 50,
+	RECORD_LENGTH = FRAMES_PER_SECOND * 60 * 10,
+	FRAME_LENGTH = MIXRATE / FRAMES_PER_SECOND,
 };
-
 unsigned char record[RECORD_LENGTH][25];
-volatile int record_pos = 0;
-
-
 
 bool fill_record(const char* filename, int number) {
 
@@ -45,6 +43,7 @@ bool fill_record(const char* filename, int number) {
 	cpuJSR(init_addr, song);
 	printf("%s - %s - %s - %d/%d\n", name, author, copyright, song + 1, max_songs + 1);
 
+
 	for (int i = 0; i < RECORD_LENGTH; i++) {
 		cpuJSR(play_addr, 0);
 		memcpy(&record[i][0], &memory[0xd400], 25);
@@ -54,19 +53,17 @@ bool fill_record(const char* filename, int number) {
 
 
 SID sid;
-bool voice_flags[3] = { true, true, true };
+int voice_flags[3] = { 1, 1, 1 };
+volatile int record_pos = 0;
+volatile int frame_pos = 0;
 
 
 void audio_callback(void* userdata, unsigned char* stream, int len) {
-	static int frame = 0;
-
 	short* buffer = (short*) stream;
 	for (int i = 0; i < len>>1; i++) {
-
 		sid.clock(17734472 / (18 * MIXRATE));	// PAL
-		if (++frame == MIXRATE / 50) {
-			frame = 0;
-
+		if (++frame_pos == FRAME_LENGTH) {
+			frame_pos = 0;
 			for (int c = 0; c < 3; c++) {
 				for (int r = 0; r < 7; r++) {
 					int a = voice_flags[c] ? record[record_pos][c * 7 + r] : 0;
@@ -74,10 +71,8 @@ void audio_callback(void* userdata, unsigned char* stream, int len) {
 				}
 			}
 			for (int r = 21; r < 25; r++) sid.write(r, record[record_pos][r]);
-
 			if (++record_pos == RECORD_LENGTH) record_pos = 0;
 		}
-
 		buffer[i] = sid.output();
 	}
 }
@@ -95,13 +90,14 @@ bool start_audio() {
 
 
 
-enum {
-	WIDTH = 800,
-	HEIGHT = 600
-};
-
-unsigned int* pixels;
+enum { WIDTH = 800, HEIGHT = 600 };
 SDL_Surface* screen;
+unsigned int* pixels;
+int zoom = 2;
+int bar_length = 8 * 6;
+int bar_offset = 7;
+
+
 
 inline unsigned int get_pixel(int x, int y) {
 	if (x >= 0 && x < WIDTH && y > 0 && y <= HEIGHT)
@@ -119,32 +115,36 @@ inline void set_pixel(int x, int y, unsigned int color) {
 #define COLOR_B(x)			(((x) >> 0) & 0xff)
 #define COLOR_RGB(r, g, b)	(((r) << 16) | ((g) << 8) | (b))
 
-void draw() {
-	int pos = record_pos;
-	int offset = 0;
-	if (pos > WIDTH / 2) {
-		offset = pos - WIDTH / 2;
-		if (offset > RECORD_LENGTH - WIDTH) offset = RECORD_LENGTH - WIDTH;
-	}
 
+void draw() {
 	// clear
 	SDL_FillRect(screen, NULL, 0x000000);
 
+	int cursor = (record_pos * FRAME_LENGTH + frame_pos) * zoom / FRAME_LENGTH;
+	int offset = 0;
+	if (cursor > WIDTH / 2) {
+		offset = cursor - WIDTH / 2;
+		int max = (RECORD_LENGTH * FRAME_LENGTH) * zoom / FRAME_LENGTH - WIDTH;
+		if (offset > max) offset = max;
+	}
+
+
 	for (int x = 0; x < WIDTH; x++) {
 
-		unsigned int color = 0x000000;
+		unsigned int color = 0;
+
 		// time bar
-		if ((x + offset - 3) % (8 * 6) == 0) color = 0x101010;
-		if ((x + offset - 3) % (8 * 6 * 4) == 0) color = 0x303030;
+		if ((x + offset - zoom * bar_offset) % (zoom * bar_length) == 0) color = 0x101010;
+		if ((x + offset - zoom * bar_offset) % (zoom * bar_length * 4) == 0) color = 0x303030;
 
 		// cursor
-		if (x + offset == pos) color = 0x606060;
+		if (x + offset == cursor) color = 0x606060;
 		if (color) for (int y = 0; y < HEIGHT; y++) set_pixel(x, y, color);
 
 
 		for (int c = 0; c < 3; c++) {
 			if (!voice_flags[c]) continue;
-			unsigned char* regs = &record[x + offset][c * 7];
+			unsigned char* regs = &record[(x + offset) / zoom][c * 7];
 
 			int gate = regs[4] & 1;
 			int noise = (regs[4] >> 7) & 1;
@@ -212,6 +212,7 @@ int main(int argc, char** argv) {
 				case SDLK_ESCAPE:
 					running = false;
 					break;
+
 				case SDLK_SPACE:
 					playing ^= 1;
 					SDL_PauseAudio(!playing);
@@ -227,6 +228,13 @@ int main(int argc, char** argv) {
 					voice_flags[2] ^= 1;
 					break;
 
+				case SDLK_PLUS:
+					zoom++;
+					break;
+				case SDLK_MINUS:
+					if (zoom > 1) zoom--;
+					break;
+
 				default: break;
 				}
 			}
@@ -236,11 +244,13 @@ int main(int argc, char** argv) {
 		int shift = keys[SDLK_LSHIFT] | keys[SDLK_RSHIFT];
 		if (keys[SDLK_RIGHT]) {
 			record_pos += 1 + shift * 10;
-			if(record_pos >= RECORD_LENGTH) record_pos -= RECORD_LENGTH;
+			if (!playing) frame_pos = 0;
+			if (record_pos >= RECORD_LENGTH) record_pos -= RECORD_LENGTH;
 		}
 		if (keys[SDLK_LEFT]) {
 			record_pos -= 1 + shift * 10;
-			if(record_pos < 0) record_pos += RECORD_LENGTH;
+			if (!playing) frame_pos = 0;
+			if (record_pos < 0) record_pos += RECORD_LENGTH;
 		}
 
 
