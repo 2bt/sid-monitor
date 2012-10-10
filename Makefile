@@ -1,5 +1,7 @@
+LIBS = -lSDL -lSDL_image
+
 all: resid-0.16/.libs/libresid.a
-	g++ -Wall -O2 main.cpp 6502.c resid-0.16/.libs/libresid.a -lSDL -o monitor
+	g++ -Wall -O2 main.cpp 6502.c resid-0.16/.libs/libresid.a $(LIBS) -o monitor
 
 
 resid-0.16/.libs/libresid.a:

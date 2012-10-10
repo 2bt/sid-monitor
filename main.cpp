@@ -1,6 +1,8 @@
 #include <stdio.h>
+#include <stdarg.h>
 #include <math.h>
 #include <SDL/SDL.h>
+#include <SDL/SDL_image.h>
 #include "resid-0.16/sid.h"
 
 
@@ -92,10 +94,12 @@ bool start_audio() {
 
 enum { WIDTH = 800, HEIGHT = 600 };
 SDL_Surface* screen;
+SDL_Surface* font_img;
 unsigned int* pixels;
 int zoom = 3;
 int bar_length = 8 * 6;
 int bar_offset = 2;
+bool playing = false;
 
 
 
@@ -108,6 +112,24 @@ inline void set_pixel(int x, int y, unsigned int color) {
 	if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT)
 		pixels[x + y * WIDTH] = color;
 }
+void print(short x, short y, const char* text, ...) {
+	char line[256];
+	va_list args;
+	va_start(args, text);
+	vsnprintf(line, 256, text, args);
+	va_end(args);
+
+	SDL_Rect src = { 0, 0, 8, 8 };
+	SDL_Rect dst = { x, y, 0, 0 };
+	char c;
+	int i = 0;
+	while ((c = line[i++])) {
+		src.x = c % 8 * 8;
+		src.y = c / 8 * 8;
+		SDL_BlitSurface(font_img, &src, screen, &dst);
+		dst.x += 8;
+	}
+}
 
 
 #define COLOR_R(x)			(((x) >> 16) & 0xff)
@@ -117,8 +139,8 @@ inline void set_pixel(int x, int y, unsigned int color) {
 
 
 void draw() {
-	// clear
 	SDL_FillRect(screen, NULL, 0x000000);
+	SDL_LockSurface(screen);
 
 	int cursor = (record_pos * FRAME_LENGTH + frame_pos) * zoom / FRAME_LENGTH;
 	int offset = 0;
@@ -144,6 +166,7 @@ void draw() {
 
 		for (int c = 0; c < 3; c++) {
 			if (!voice_flags[c]) continue;
+
 			unsigned char* regs = &record[(x + offset) / zoom][c * 7];
 
 			int gate = regs[4] & 1;
@@ -170,12 +193,21 @@ void draw() {
 			set_pixel(x, HEIGHT - n - 1, get_pixel(x, HEIGHT - n - 1) | color);
 			set_pixel(x, HEIGHT - n - 0, get_pixel(x, HEIGHT - n - 1) | color);
 
-
 		}
-
 	}
-}
+	SDL_UnlockSurface(screen);
 
+	// print stuff
+	print(8, HEIGHT - 16, "position:%6d", record_pos);
+	print(136, HEIGHT - 16, playing ? "playing" : "paused");
+
+	print(8, 8, "voices:");
+	for (int c = 0; c < 3; c++) {
+		if (!voice_flags[c]) continue;
+		print(72 + c * 8, 8, "%d", c + 1);
+	}
+
+}
 
 
 int main(int argc, char** argv) {
@@ -197,9 +229,9 @@ int main(int argc, char** argv) {
 	}
 	unsigned char* keys = SDL_GetKeyState(NULL);
 	pixels = (unsigned int*) screen->pixels;
+	font_img = IMG_Load("font.png");
 
 
-	bool playing = false;
 	bool running = true;
 	while (running) {
 		SDL_Event event;
@@ -277,9 +309,7 @@ int main(int argc, char** argv) {
 		}
 
 
-		SDL_LockSurface(screen);
 		draw();
-		SDL_UnlockSurface(screen);
 		SDL_Flip(screen);
 		SDL_Delay(10);
 	}
