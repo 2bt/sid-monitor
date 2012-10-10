@@ -287,9 +287,6 @@ int main(int argc, char** argv) {
 					bar_length--;
 					break;
 
-
-
-
 				default: break;
 				}
 			}
@@ -314,6 +311,7 @@ int main(int argc, char** argv) {
 		SDL_Delay(10);
 	}
 
+	SDL_FreeSurface(font_img);
 	SDL_Quit();
 	return 0;
 }
