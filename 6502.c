@@ -673,20 +673,15 @@ unsigned short c64SidLoad(const char* filename, unsigned short* init_addr,
 	// Copyright holen
 	fseek(f, 0x56, 0);
 	for(i = 0; i < 32; i++) copyright[i] = fgetc(f);
-	fclose(f);
-
 
 	unsigned char sidmem[65536];
-	unsigned char *p = sidmem;
 	unsigned short load_addr;
 
-	if( (f=fopen(filename, "rb")) == NULL) return 0;
-	while(!feof(f)) *p++ = fgetc(f);
+	rewind(f);
+	int len = fread(sidmem, 1, 65536, f);
 	fclose(f);
 
-	LoadSIDFromMemory(sidmem, &load_addr,
-		init_addr, play_addr, max_sub_songs, sub_song_start, speed, p-sidmem);
-
-	return load_addr;
+	return LoadSIDFromMemory(sidmem, &load_addr, init_addr,
+		play_addr, max_sub_songs, sub_song_start, speed, len);
 }
 
