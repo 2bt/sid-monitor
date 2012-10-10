@@ -93,9 +93,9 @@ bool start_audio() {
 enum { WIDTH = 800, HEIGHT = 600 };
 SDL_Surface* screen;
 unsigned int* pixels;
-int zoom = 2;
+int zoom = 3;
 int bar_length = 8 * 6;
-int bar_offset = 7;
+int bar_offset = 2;
 
 
 
@@ -105,7 +105,7 @@ inline unsigned int get_pixel(int x, int y) {
 	return 0;
 }
 inline void set_pixel(int x, int y, unsigned int color) {
-	if (x >= 0 && x < WIDTH && y > 0 && y <= HEIGHT)
+	if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT)
 		pixels[x + y * WIDTH] = color;
 }
 
@@ -170,6 +170,7 @@ void draw() {
 			set_pixel(x, HEIGHT - n - 1, get_pixel(x, HEIGHT - n - 1) | color);
 			set_pixel(x, HEIGHT - n - 0, get_pixel(x, HEIGHT - n - 1) | color);
 
+
 		}
 
 	}
@@ -217,6 +218,12 @@ int main(int argc, char** argv) {
 					playing ^= 1;
 					SDL_PauseAudio(!playing);
 					break;
+				case SDLK_BACKSPACE:
+					playing = 0;
+					SDL_PauseAudio(!playing);
+					record_pos = 0;
+					frame_pos = 0;
+					break;
 
 				case SDLK_1:
 					voice_flags[0] ^= 1;
@@ -234,6 +241,22 @@ int main(int argc, char** argv) {
 				case SDLK_MINUS:
 					if (zoom > 1) zoom--;
 					break;
+
+				case SDLK_d:
+					bar_offset++;
+					break;
+				case SDLK_a:
+					bar_offset--;
+					break;
+				case SDLK_w:
+					bar_length++;
+					break;
+				case SDLK_s:
+					bar_length--;
+					break;
+
+
+
 
 				default: break;
 				}
