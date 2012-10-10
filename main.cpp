@@ -199,12 +199,16 @@ void draw() {
 
 	// print stuff
 	print(8, HEIGHT - 16, "position:%6d", record_pos);
-	print(136, HEIGHT - 16, playing ? "playing" : "paused");
 
-	print(8, 8, "voices:");
 	for (int c = 0; c < 3; c++) {
 		if (!voice_flags[c]) continue;
-		print(72 + c * 8, 8, "%d", c + 1);
+
+		for (int r = 0; r < 7; r++) {
+			print(8 + r * 24, 8 + c * 16, "%02X", record[record_pos][c * 7 + r]);
+		}
+	}
+	for (int r = 0; r < 4; r++) {
+		print(8 + r * 24, 56, "%02X", record[record_pos][21 + r]);
 	}
 
 }
