@@ -24,14 +24,15 @@ enum {
 unsigned char record[RECORD_LENGTH][25];
 //short wavelog[RECORD_LENGTH][FRAME_LENGTH];
 
+char title[128];
+
 bool fill_record(const char* filename, int number) {
 
 	unsigned short init_addr;
 	unsigned short play_addr;
+	unsigned char speed;
 	unsigned char song;
 	unsigned char max_songs;
-	unsigned char speed;
-
 	char name[32];
 	char author[32];
 	char copyright[32];
@@ -44,8 +45,8 @@ bool fill_record(const char* filename, int number) {
 	if (number > 0 && number <= max_songs + 1) song = number - 1;
 
 	cpuJSR(init_addr, song);
-	printf("%s - %s - %s - %d/%d\n", name, author, copyright, song + 1, max_songs + 1);
-
+	snprintf(title, 128, "%s - %s - %s - %d/%d\n",
+		name, author, copyright, song + 1, max_songs + 1);
 
 	for (int i = 0; i < RECORD_LENGTH; i++) {
 		cpuJSR(play_addr, 0);
@@ -227,17 +228,18 @@ void draw() {
 	SDL_UnlockSurface(screen);
 
 	// print stuff
-	print(8, HEIGHT - 16, "position:%6d", record_pos);
+	print(8, 8, "%s", title);
+	print(WIDTH - 7 * 8, 9, "%6d", record_pos);
 
 	for (int c = 0; c < 3; c++) {
 		if (!voice_flags[c]) continue;
 
 		for (int r = 0; r < 7; r++) {
-			print(8 + r * 24, 8 + c * 16, "%02X", record[record_pos][c * 7 + r]);
+			print(8 + r * 24, 24 + c * 16, "%02X", record[record_pos][c * 7 + r]);
 		}
 	}
 	for (int r = 0; r < 4; r++) {
-		print(8 + r * 24, 56, "%02X", record[record_pos][21 + r]);
+		print(8 + r * 24, 72, "%02X", record[record_pos][21 + r]);
 	}
 
 }
