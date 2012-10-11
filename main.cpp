@@ -18,10 +18,11 @@ void c64Init(void);
 enum {
 	MIXRATE = 44100,
 	FRAMES_PER_SECOND = 50,
-	RECORD_LENGTH = FRAMES_PER_SECOND * 60 * 10,
 	FRAME_LENGTH = MIXRATE / FRAMES_PER_SECOND,
+	RECORD_LENGTH = FRAMES_PER_SECOND * 60 * 10,
 };
 unsigned char record[RECORD_LENGTH][25];
+//short wavelog[RECORD_LENGTH][FRAME_LENGTH];
 
 bool fill_record(const char* filename, int number) {
 
@@ -58,14 +59,32 @@ SID sid;
 int voice_flags[3] = { 1, 1, 1 };
 volatile int record_pos = 0;
 volatile int frame_pos = 0;
+unsigned char* keys;
+bool playing = false;
 
 
 void audio_callback(void* userdata, unsigned char* stream, int len) {
+
+	int y = keys[SDLK_DOWN];
+	int x = keys[SDLK_RIGHT] - keys[SDLK_LEFT];
+	x *= 1 + (keys[SDLK_LSHIFT] | keys[SDLK_RSHIFT]) * 5;
+
 	short* buffer = (short*) stream;
-	for (int i = 0; i < len>>1; i++) {
-		sid.clock(17734472 / (18 * MIXRATE));	// PAL
-		if (++frame_pos == FRAME_LENGTH) {
-			frame_pos = 0;
+	for (int i = 0; i < len >> 1; i++) {
+
+		if (playing) {
+			sid.clock(17734472 / (18 * MIXRATE)); // PAL
+			//wavelog[record_pos][frame_pos] =
+			buffer[i] = sid.output();
+		}
+		else buffer[i] = 0;
+
+		if (!y) frame_pos += x > 0 ? x : x < 0 ? x : playing;
+		else frame_pos += x;
+
+		int d = (frame_pos >= FRAME_LENGTH) - (frame_pos < 0);
+		if (d || y) {
+			frame_pos = (frame_pos + FRAME_LENGTH) % FRAME_LENGTH;
 			for (int c = 0; c < 3; c++) {
 				for (int r = 0; r < 7; r++) {
 					int a = voice_flags[c] ? record[record_pos][c * 7 + r] : 0;
@@ -73,21 +92,24 @@ void audio_callback(void* userdata, unsigned char* stream, int len) {
 				}
 			}
 			for (int r = 21; r < 25; r++) sid.write(r, record[record_pos][r]);
-			if (++record_pos == RECORD_LENGTH) record_pos = 0;
+
+			record_pos += d;
+			if (record_pos >= RECORD_LENGTH) record_pos -= RECORD_LENGTH;
+			if (record_pos < 0) record_pos += RECORD_LENGTH;
 		}
-		buffer[i] = sid.output();
 	}
 }
 
 
-bool start_audio() {
+void start_audio() {
 	sid.reset();
 	sid.set_chip_model(MOS6581);
 	sid.enable_filter(true);
 	SDL_AudioSpec spec = { MIXRATE, AUDIO_S16SYS,
 		1, 0, 1024, 0, 0, &audio_callback, NULL
 	};
-	return !SDL_OpenAudio(&spec, &spec);
+	SDL_OpenAudio(&spec, &spec);
+	SDL_PauseAudio(0);
 }
 
 
@@ -99,8 +121,7 @@ unsigned int* pixels;
 int zoom = 3;
 int bar_length = 8 * 6;
 int bar_offset = 2;
-bool playing = false;
-
+bool show_filter = false;
 
 
 inline unsigned int get_pixel(int x, int y) {
@@ -164,15 +185,16 @@ void draw() {
 		if (color) for (int y = 0; y < HEIGHT; y++) set_pixel(x, y, color);
 
 
+		unsigned char* regs = record[(x + offset) / zoom];
 		for (int c = 0; c < 3; c++) {
 			if (!voice_flags[c]) continue;
 
-			unsigned char* regs = &record[(x + offset) / zoom][c * 7];
+			unsigned char* voice = &regs[c * 7];
 
-			int gate = regs[4] & 1;
-			int noise = (regs[4] >> 7) & 1;
+			int gate = voice[4] & 1;
+			int noise = (voice[4] >> 7) & 1;
 
-			double freq = regs[0] + regs[1] * 256;
+			double freq = voice[0] + voice[1] * 256;
 
 			freq /= 100;
 			double note = 12.0 * log2(freq * 17734472.0 / (18.0 * 16.35 * 16777216.0 ));
@@ -194,6 +216,13 @@ void draw() {
 			set_pixel(x, HEIGHT - n - 0, get_pixel(x, HEIGHT - n - 1) | color);
 
 		}
+		if (show_filter) {
+//			int filter_freq = (regs[21] & 3) | (regs[22] << 2);
+			int filter_freq = regs[22];
+			for (int y = HEIGHT - 1 - filter_freq; y < HEIGHT; y++)
+				set_pixel(x, y, get_pixel(x, y) | 0x0f0f00);
+		}
+
 	}
 	SDL_UnlockSurface(screen);
 
@@ -222,7 +251,6 @@ int main(int argc, char** argv) {
 	}
 
 	fill_record(argv[1], argc == 3 ? atoi(argv[2]) : 0);
-	start_audio();
 
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) return 1;
@@ -231,10 +259,12 @@ int main(int argc, char** argv) {
 		SDL_Quit();
 		return 1;
 	}
-	unsigned char* keys = SDL_GetKeyState(NULL);
+	keys = SDL_GetKeyState(NULL);
 	pixels = (unsigned int*) screen->pixels;
 	font_img = IMG_Load("font.png");
 
+
+	start_audio();
 
 	bool running = true;
 	while (running) {
@@ -252,11 +282,9 @@ int main(int argc, char** argv) {
 
 				case SDLK_SPACE:
 					playing ^= 1;
-					SDL_PauseAudio(!playing);
 					break;
 				case SDLK_BACKSPACE:
 					playing = 0;
-					SDL_PauseAudio(!playing);
 					record_pos = 0;
 					frame_pos = 0;
 					break;
@@ -271,8 +299,12 @@ int main(int argc, char** argv) {
 					voice_flags[2] ^= 1;
 					break;
 
+				case SDLK_f:
+					show_filter ^= 1;
+					break;
+
 				case SDLK_PLUS:
-					zoom++;
+					if (zoom < 20) zoom++;
 					break;
 				case SDLK_MINUS:
 					if (zoom > 1) zoom--;
@@ -291,24 +323,26 @@ int main(int argc, char** argv) {
 					bar_length--;
 					break;
 
+				case SDLK_RIGHT:
+					if (event.key.keysym.mod & KMOD_CTRL) {
+						if (++record_pos >= RECORD_LENGTH)
+							record_pos -= RECORD_LENGTH;
+						frame_pos = 0;
+					}
+					break;
+				case SDLK_LEFT:
+					if (event.key.keysym.mod & KMOD_CTRL) {
+						if (--record_pos < 0)
+							record_pos += RECORD_LENGTH;
+						frame_pos = 0;
+					}
+					break;
+
+
 				default: break;
 				}
 			}
 		}
-
-
-		int shift = keys[SDLK_LSHIFT] | keys[SDLK_RSHIFT];
-		if (keys[SDLK_RIGHT]) {
-			record_pos += 1 + shift * 10;
-			if (!playing) frame_pos = 0;
-			if (record_pos >= RECORD_LENGTH) record_pos -= RECORD_LENGTH;
-		}
-		if (keys[SDLK_LEFT]) {
-			record_pos -= 1 + shift * 10;
-			if (!playing) frame_pos = 0;
-			if (record_pos < 0) record_pos += RECORD_LENGTH;
-		}
-
 
 		draw();
 		SDL_Flip(screen);
