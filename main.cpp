@@ -120,8 +120,8 @@ SDL_Surface* screen;
 SDL_Surface* font_img;
 unsigned int* pixels;
 int zoom = 3;
-int vert_zoom = 3;
-int vert_pos = 90;
+int vert_zoom = 5;
+int vert_pos = 0;
 int bar_length = 8 * 6;
 int bar_offset = 2;
 bool show_filter = false;
@@ -174,6 +174,7 @@ void draw() {
 		if (offset > max) offset = max;
 	}
 
+	int cursor_note[3];
 
 	for (int x = 0; x < WIDTH; x++) {
 
@@ -188,6 +189,8 @@ void draw() {
 		if (color) for (int y = 0; y < HEIGHT; y++) set_pixel(x, y, color);
 
 
+
+
 		unsigned char* regs = record[(x + offset) / zoom];
 		for (int c = 0; c < 3; c++) {
 			if (!voice_flags[c]) continue;
@@ -199,7 +202,13 @@ void draw() {
 			int freq = voice[0] + voice[1] * 256;
 
 			double real_freq = freq * 17734472.0 / (18 << 24);
-			int y = HEIGHT / 2 - vert_zoom * (log2(real_freq) * 12.0 - vert_pos);
+			double note = log2(real_freq / 440.0) * 12.0;
+			if (x + offset == cursor) {
+				cursor_note[c] = (int) (note + 57.5);
+			}
+
+
+			int y = HEIGHT / 2 - (note - vert_pos) * vert_zoom;
 
 			color = 0xff << (18 - c * 8);
 			if (noise) color |= 0x666666;
@@ -234,6 +243,14 @@ void draw() {
 		for (int r = 0; r < 7; r++) {
 			print(8 + r * 24, 24 + c * 16, "%02X", record[record_pos][c * 7 + r]);
 		}
+
+		int n = cursor_note[c];
+		print(200, 24 + c * 16, "%c%c%d",
+			"CCDDEFFGGAAB"[n % 12],
+			"-#-#--#-#-#-"[n % 12],
+			n / 12
+		);
+
 	}
 	for (int r = 0; r < 4; r++) {
 		print(8 + r * 24, 72, "%02X", record[record_pos][21 + r]);
