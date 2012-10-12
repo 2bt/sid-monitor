@@ -66,7 +66,7 @@ bool playing = false;
 
 void audio_callback(void* userdata, unsigned char* stream, int len) {
 
-	int y = keys[SDLK_DOWN];
+	int y = keys[SDLK_RCTRL] | keys[SDLK_LCTRL];
 	int x = keys[SDLK_RIGHT] - keys[SDLK_LEFT];
 	x *= 1 + (keys[SDLK_LSHIFT] | keys[SDLK_RSHIFT]) * 5;
 
@@ -107,7 +107,7 @@ void start_audio() {
 	sid.set_chip_model(MOS6581);
 	sid.enable_filter(true);
 	SDL_AudioSpec spec = { MIXRATE, AUDIO_S16SYS,
-		1, 0, 1024, 0, 0, &audio_callback, NULL
+		1, 0, 1024 / 2, 0, 0, &audio_callback, NULL
 	};
 	SDL_OpenAudio(&spec, &spec);
 	SDL_PauseAudio(0);
@@ -120,6 +120,8 @@ SDL_Surface* screen;
 SDL_Surface* font_img;
 unsigned int* pixels;
 int zoom = 3;
+int vert_zoom = 3;
+int vert_pos = 90;
 int bar_length = 8 * 6;
 int bar_offset = 2;
 bool show_filter = false;
@@ -178,8 +180,8 @@ void draw() {
 		unsigned int color = 0;
 
 		// time bar
-		if ((x + offset - zoom * bar_offset) % (zoom * bar_length) == 0) color = 0x101010;
-		if ((x + offset - zoom * bar_offset) % (zoom * bar_length * 4) == 0) color = 0x303030;
+		if ((x + offset - zoom * bar_offset) % (zoom * bar_length) == 0)
+			color = 0x101010;
 
 		// cursor
 		if (x + offset == cursor) color = 0x606060;
@@ -194,12 +196,10 @@ void draw() {
 
 			int gate = voice[4] & 1;
 			int noise = (voice[4] >> 7) & 1;
+			int freq = voice[0] + voice[1] * 256;
 
-			double freq = voice[0] + voice[1] * 256;
-
-			freq /= 100;
-			double note = 12.0 * log2(freq * 17734472.0 / (18.0 * 16.35 * 16777216.0 ));
-			int n = (note + 60) * 6.0 + 100;
+			double real_freq = freq * 17734472.0 / (18 << 24);
+			int y = HEIGHT / 2 - vert_zoom * (log2(real_freq) * 12.0 - vert_pos);
 
 			color = 0xff << (18 - c * 8);
 			if (noise) color |= 0x666666;
@@ -210,15 +210,12 @@ void draw() {
 				COLOR_G(color) * (1 + gate * 3) / 4,
 				COLOR_B(color) * (1 + gate * 3) / 4
 			);
-
-
-			set_pixel(x, HEIGHT - n - 2, get_pixel(x, HEIGHT - n - 1) | color);
-			set_pixel(x, HEIGHT - n - 1, get_pixel(x, HEIGHT - n - 1) | color);
-			set_pixel(x, HEIGHT - n - 0, get_pixel(x, HEIGHT - n - 1) | color);
+			set_pixel(x, y + 1, get_pixel(x, y + 1) | color);
+			set_pixel(x, y    , get_pixel(x, y    ) | color);
+			set_pixel(x, y - 1, get_pixel(x, y - 1) | color);
 
 		}
 		if (show_filter) {
-//			int filter_freq = (regs[21] & 3) | (regs[22] << 2);
 			int filter_freq = regs[22];
 			for (int y = HEIGHT - 1 - filter_freq; y < HEIGHT; y++)
 				set_pixel(x, y, get_pixel(x, y) | 0x0f0f00);
@@ -306,10 +303,17 @@ int main(int argc, char** argv) {
 					break;
 
 				case SDLK_PLUS:
-					if (zoom < 20) zoom++;
+					zoom++;
 					break;
 				case SDLK_MINUS:
 					if (zoom > 1) zoom--;
+					break;
+
+				case SDLK_PAGEUP:
+					vert_zoom++;
+					break;
+				case SDLK_PAGEDOWN:
+					if (vert_zoom > 1) vert_zoom--;
 					break;
 
 				case SDLK_d:
@@ -325,26 +329,12 @@ int main(int argc, char** argv) {
 					bar_length--;
 					break;
 
-				case SDLK_RIGHT:
-					if (event.key.keysym.mod & KMOD_CTRL) {
-						if (++record_pos >= RECORD_LENGTH)
-							record_pos -= RECORD_LENGTH;
-						frame_pos = 0;
-					}
-					break;
-				case SDLK_LEFT:
-					if (event.key.keysym.mod & KMOD_CTRL) {
-						if (--record_pos < 0)
-							record_pos += RECORD_LENGTH;
-						frame_pos = 0;
-					}
-					break;
-
-
 				default: break;
 				}
 			}
 		}
+
+		vert_pos += keys[SDLK_UP] - keys[SDLK_DOWN];
 
 		draw();
 		SDL_Flip(screen);
