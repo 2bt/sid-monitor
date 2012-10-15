@@ -119,9 +119,10 @@ enum { WIDTH = 800, HEIGHT = 600 };
 SDL_Surface* screen;
 SDL_Surface* font_img;
 unsigned int* pixels;
+int a_freq = 440;
 int zoom = 3;
-int vert_zoom = 5;
-int vert_pos = 0;
+int vert_zoom = 10;
+int vert_pos = -12;
 int bar_length = 8 * 6;
 int bar_offset = 2;
 bool show_filter = false;
@@ -164,6 +165,19 @@ void print(short x, short y, const char* text, ...) {
 
 void draw() {
 	SDL_FillRect(screen, NULL, 0x000000);
+	SDL_Rect rect = { 0, 0, WIDTH, 0 };
+
+	for (int n = 0; n < HEIGHT / vert_zoom + 2; n++) {
+		int no = n - HEIGHT / vert_zoom / 2;
+		int y = HEIGHT / 2 - vert_zoom / 2 + no * vert_zoom;
+		rect.y = y;
+		rect.h = vert_zoom - 1;
+		int note = (vert_pos - no + 1200 - 3);
+		SDL_FillRect(screen, &rect, "-#-#--#-#-#-"[note%12] == '#' ? 0x050505 : 0x111111);
+
+	}
+
+
 	SDL_LockSurface(screen);
 
 	int cursor = (record_pos * FRAME_LENGTH + frame_pos) * zoom / FRAME_LENGTH;
@@ -173,22 +187,14 @@ void draw() {
 		int max = (RECORD_LENGTH * FRAME_LENGTH) * zoom / FRAME_LENGTH - WIDTH;
 		if (offset > max) offset = max;
 	}
-
 	int cursor_note[3];
-
 	for (int x = 0; x < WIDTH; x++) {
 
 		unsigned int color = 0;
 
 		// time bar
 		if ((x + offset - zoom * bar_offset) % (zoom * bar_length) == 0)
-			color = 0x101010;
-
-		// cursor
-		if (x + offset == cursor) color = 0x606060;
-		if (color) for (int y = 0; y < HEIGHT; y++) set_pixel(x, y, color);
-
-
+			for (int y = 0; y < HEIGHT; y++) set_pixel(x, y, 0x202020);
 
 
 		unsigned char* regs = record[(x + offset) / zoom];
@@ -202,7 +208,7 @@ void draw() {
 			int freq = voice[0] + voice[1] * 256;
 
 			double real_freq = freq * 17734472.0 / (18 << 24);
-			double note = log2(real_freq / 440.0) * 12.0;
+			double note = log2(real_freq / (double) a_freq) * 12.0;
 			if (x + offset == cursor) {
 				cursor_note[c] = (int) (note + 57.5);
 			}
@@ -215,27 +221,36 @@ void draw() {
 
 
 			color = COLOR_RGB(
-				COLOR_R(color) * (1 + gate * 3) / 4,
-				COLOR_G(color) * (1 + gate * 3) / 4,
-				COLOR_B(color) * (1 + gate * 3) / 4
+				COLOR_R(color) * (1 + gate * 2) / 3,
+				COLOR_G(color) * (1 + gate * 2) / 3,
+				COLOR_B(color) * (1 + gate * 2) / 3
 			);
+
+			set_pixel(x, y + 2, get_pixel(x, y + 2) | color);
 			set_pixel(x, y + 1, get_pixel(x, y + 1) | color);
 			set_pixel(x, y    , get_pixel(x, y    ) | color);
 			set_pixel(x, y - 1, get_pixel(x, y - 1) | color);
+			set_pixel(x, y - 2, get_pixel(x, y - 2) | color);
 
 		}
+
 		if (show_filter) {
 			int filter_freq = regs[22];
 			for (int y = HEIGHT - 1 - filter_freq; y < HEIGHT; y++)
 				set_pixel(x, y, get_pixel(x, y) | 0x0f0f00);
 		}
 
+		// cursor
+		if (x + offset == cursor)
+			for (int y = 0; y < HEIGHT; y++) set_pixel(x, y, 0x606060);
 	}
 	SDL_UnlockSurface(screen);
 
 	// print stuff
 	print(8, 8, "%s", title);
-	print(WIDTH - 7 * 8, 9, "%6d", record_pos);
+	print(WIDTH - 8 * 20,  8, "   position: %6d", record_pos);
+	print(WIDTH - 8 * 20, 24, " bar length: %6d", bar_length);
+	print(WIDTH - 8 * 20, 40, "     tuning: %6d", a_freq);
 
 	for (int c = 0; c < 3; c++) {
 		if (!voice_flags[c]) continue;
@@ -344,6 +359,13 @@ int main(int argc, char** argv) {
 					break;
 				case SDLK_s:
 					bar_length--;
+					break;
+
+				case SDLK_j:
+					a_freq++;
+					break;
+				case SDLK_h:
+					a_freq--;
 					break;
 
 				default: break;
