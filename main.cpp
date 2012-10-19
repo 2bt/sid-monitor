@@ -115,7 +115,10 @@ void start_audio() {
 
 
 
-enum { WIDTH = 800, HEIGHT = 600 };
+enum {
+	WIDTH = 1024, //800,
+	HEIGHT = 768 //600
+};
 SDL_Surface* screen;
 SDL_Surface* font_img;
 unsigned int* pixels;
@@ -173,7 +176,11 @@ void draw() {
 		rect.y = y;
 		rect.h = vert_zoom - 1;
 		int note = (vert_pos - no + 1200 - 3);
-		SDL_FillRect(screen, &rect, "-#-#--#-#-#-"[note%12] == '#' ? 0x050505 : 0x111111);
+
+		static const unsigned int key_colors[] = {
+			0x111111, 0x050505, 0x1f1f1f
+		};
+		SDL_FillRect(screen, &rect, key_colors["210100101010"[note%12] - '0']);
 
 	}
 
@@ -260,11 +267,13 @@ void draw() {
 		}
 
 		int n = cursor_note[c];
-		print(200, 24 + c * 16, "%c%c%d",
-			"CCDDEFFGGAAB"[n % 12],
-			"-#-#--#-#-#-"[n % 12],
-			n / 12
-		);
+		if (n > 0) {
+			print(200, 24 + c * 16, "%c%c%d",
+				"CCDDEFFGGAAB"[n % 12],
+				"-#-#--#-#-#-"[n % 12],
+				n / 12
+			);
+		}
 
 	}
 	for (int r = 0; r < 4; r++) {
