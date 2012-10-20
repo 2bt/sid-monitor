@@ -129,6 +129,7 @@ int vert_pos = -12;
 int bar_length = 8 * 6;
 int bar_offset = 2;
 bool show_filter = false;
+bool show_bars = true;
 
 
 inline unsigned int get_pixel(int x, int y) {
@@ -178,7 +179,7 @@ void draw() {
 		int note = (vert_pos - no + 1200 - 3);
 
 		static const unsigned int key_colors[] = {
-			0x111111, 0x050505, 0x1f1f1f
+			0x0f0f0f, 0x040404, 0x1f1f1f
 		};
 		SDL_FillRect(screen, &rect, key_colors["210100101010"[note%12] - '0']);
 
@@ -197,12 +198,10 @@ void draw() {
 	int cursor_note[3];
 	for (int x = 0; x < WIDTH; x++) {
 
-		unsigned int color = 0;
-
-		// time bar
-		if ((x + offset - zoom * bar_offset) % (zoom * bar_length) == 0)
-			for (int y = 0; y < HEIGHT; y++) set_pixel(x, y, 0x202020);
-
+		if (show_bars) {
+			if ((x + offset - zoom * bar_offset) % (zoom * bar_length) == 0)
+				for (int y = 0; y < HEIGHT; y++) set_pixel(x, y, 0x202020);
+		}
 
 		unsigned char* regs = record[(x + offset) / zoom];
 		for (int c = 0; c < 3; c++) {
@@ -223,7 +222,7 @@ void draw() {
 
 			int y = HEIGHT / 2 - (note - vert_pos) * vert_zoom;
 
-			color = 0xff << (18 - c * 8);
+			unsigned int color = 0xff << (18 - c * 8);
 			if (noise) color |= 0x666666;
 
 
@@ -255,9 +254,11 @@ void draw() {
 
 	// print stuff
 	print(8, 8, "%s", title);
-	print(WIDTH - 8 * 20,  8, "   position: %6d", record_pos);
-	print(WIDTH - 8 * 20, 24, " bar length: %6d", bar_length);
-	print(WIDTH - 8 * 20, 40, "     tuning: %6d", a_freq);
+	print(WIDTH - 8 * 20,  8, "       time:  %02d:%02d",
+		record_pos / 50 / 60, record_pos / 50 % 60);
+	print(WIDTH - 8 * 20, 24, "   position: %6d", record_pos);
+	print(WIDTH - 8 * 20, 40, " bar length: %6d", bar_length);
+	print(WIDTH - 8 * 20, 56, "     tuning: %6d", a_freq);
 
 	for (int c = 0; c < 3; c++) {
 		if (!voice_flags[c]) continue;
@@ -341,6 +342,9 @@ int main(int argc, char** argv) {
 
 				case SDLK_f:
 					show_filter ^= 1;
+					break;
+				case SDLK_t:
+					show_bars ^= 1;
 					break;
 
 				case SDLK_PLUS:
