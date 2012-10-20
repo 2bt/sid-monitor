@@ -48,10 +48,6 @@ bool fill_record(const char* filename, int number) {
 	snprintf(title, 128, "%s - %s - %s - %d/%d\n",
 		name, author, copyright, song + 1, max_songs + 1);
 
-
-	puts(title);
-
-
 	for (int i = 0; i < RECORD_LENGTH; i++) {
 		cpuJSR(play_addr, 0);
 		memcpy(&record[i][0], &memory[0xd400], 25);
