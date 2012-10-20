@@ -48,6 +48,10 @@ bool fill_record(const char* filename, int number) {
 	snprintf(title, 128, "%s - %s - %s - %d/%d\n",
 		name, author, copyright, song + 1, max_songs + 1);
 
+
+	puts(title);
+
+
 	for (int i = 0; i < RECORD_LENGTH; i++) {
 		cpuJSR(play_addr, 0);
 		memcpy(&record[i][0], &memory[0xd400], 25);
@@ -150,13 +154,12 @@ void print(short x, short y, const char* text, ...) {
 
 	SDL_Rect src = { 0, 0, 8, 8 };
 	SDL_Rect dst = { x, y, 0, 0 };
-	char c;
+	unsigned char c;
 	int i = 0;
-	while ((c = line[i++])) {
+	while ((c = (unsigned char)line[i++])) {
 		src.x = c % 8 * 8;
 		src.y = c / 8 * 8;
 		SDL_BlitSurface(font_img, &src, screen, &dst);
-		dst.x += 8;
 	}
 }
 
