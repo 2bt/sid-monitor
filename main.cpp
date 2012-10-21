@@ -156,6 +156,7 @@ void print(short x, short y, const char* text, ...) {
 		src.x = c % 8 * 8;
 		src.y = c / 8 * 8;
 		SDL_BlitSurface(font_img, &src, screen, &dst);
+		dst.x += 8;
 	}
 }
 
@@ -254,7 +255,8 @@ void draw() {
 	// print stuff
 	print(8, 8, "%s", title);
 	print(WIDTH - 8 * 20,  8, "       time:  %02d:%02d",
-		record_pos / 50 / 60, record_pos / 50 % 60);
+		record_pos / FRAMES_PER_SECOND / 60,
+		record_pos / FRAMES_PER_SECOND % 60);
 	print(WIDTH - 8 * 20, 24, "   position: %6d", record_pos);
 	print(WIDTH - 8 * 20, 40, " bar length: %6d", bar_length);
 	print(WIDTH - 8 * 20, 56, "     tuning: %6d", a_freq);
