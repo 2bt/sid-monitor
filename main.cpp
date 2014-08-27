@@ -102,10 +102,12 @@ void audio_callback(void* userdata, unsigned char* stream, int len) {
 }
 
 
+bool filter_enabled = true;
+
 void start_audio() {
 	sid.reset();
 	sid.set_chip_model(MOS6581);
-	sid.enable_filter(true);
+	sid.enable_filter(filter_enabled);
 	SDL_AudioSpec spec = { MIXRATE, AUDIO_S16SYS,
 		1, 0, 1024 / 2, 0, 0, &audio_callback, NULL
 	};
@@ -292,7 +294,10 @@ int main(int argc, char** argv) {
 		return 0;
 	}
 
-	fill_record(argv[1], argc == 3 ? atoi(argv[2]) : 0);
+	if (!fill_record(argv[1], argc == 3 ? atoi(argv[2]) : 0)) {
+		printf("read error\n");
+		return 1;
+	}
 
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) return 1;
@@ -316,10 +321,24 @@ int main(int argc, char** argv) {
 			case SDL_QUIT:
 				running = false;
 				break;
+
+			case SDL_KEYUP:
+				switch (event.key.keysym.sym) {
+				case SDLK_TAB:
+					SDL_EnableKeyRepeat(0, 0);
+					break;
+				default: break;
+				}
+				break;
+
 			case SDL_KEYDOWN:
 				switch (event.key.keysym.sym) {
 				case SDLK_ESCAPE:
 					running = false;
+					break;
+
+				case SDLK_TAB:
+					SDL_EnableKeyRepeat(10, 10);
 					break;
 
 				case SDLK_SPACE:
@@ -339,6 +358,12 @@ int main(int argc, char** argv) {
 					break;
 				case SDLK_3:
 					voice_flags[2] ^= 1;
+					break;
+
+
+				case SDLK_y:
+					filter_enabled ^= 1;
+					sid.enable_filter(filter_enabled);
 					break;
 
 				case SDLK_f:
