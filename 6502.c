@@ -19,7 +19,8 @@ enum {
 	cld, cli, clv, cmp, cpx, cpy, dec, dex, dey, eor, inc, inx, iny, jmp,
 	jsr, lda, ldx, ldy, lsr, nop, ora, pha, php, pla, plp, rol, ror, rti,
 	rts, sbc, sec, sed, sei, sta, stx, sty, tax, tay, tsx, txa, txs, tya,
-	xxx
+	xxx,
+	slo,axs,lax
 };
 
 unsigned char memory[65536];
@@ -54,7 +55,7 @@ void setmem(unsigned short addr, unsigned char value) {
 static int opcodes[256] = {
 	brk,ora,xxx,xxx,xxx,ora,asl,xxx,php,ora,asl,xxx,xxx,ora,asl,xxx,
 	bpl,ora,xxx,xxx,xxx,ora,asl,xxx,clc,ora,xxx,xxx,xxx,ora,asl,xxx,
-	jsr,and_,xxx,xxx,bit,and_,rol,xxx,plp,and_,rol,xxx,bit,and_,rol,xxx,
+	jsr,and_,slo,xxx,bit,and_,rol,xxx,plp,and_,rol,xxx,bit,and_,rol,xxx,
 	bmi,and_,xxx,xxx,xxx,and_,rol,xxx,sec,and_,xxx,xxx,xxx,and_,rol,xxx,
 	rti,eor,xxx,xxx,xxx,eor,lsr,xxx,pha,eor,lsr,xxx,jmp,eor,lsr,xxx,
 	bvc,eor,xxx,xxx,xxx,eor,lsr,xxx,cli,eor,xxx,xxx,xxx,eor,lsr,xxx,
@@ -62,9 +63,9 @@ static int opcodes[256] = {
 	bvs,adc,xxx,xxx,xxx,adc,ror,xxx,sei,adc,xxx,xxx,xxx,adc,ror,xxx,
 	xxx,sta,xxx,xxx,sty,sta,stx,xxx,dey,xxx,txa,xxx,sty,sta,stx,xxx,
 	bcc,sta,xxx,xxx,sty,sta,stx,xxx,tya,sta,txs,xxx,xxx,sta,xxx,xxx,
-	ldy,lda,ldx,xxx,ldy,lda,ldx,xxx,tay,lda,tax,xxx,ldy,lda,ldx,xxx,
+	ldy,lda,ldx,xxx,ldy,lda,ldx,xxx,tay,lda,tax,xxx,ldy,lda,ldx,lax,
 	bcs,lda,xxx,xxx,ldy,lda,ldx,xxx,clv,lda,tsx,xxx,ldy,lda,ldx,xxx,
-	cpy,cmp,xxx,xxx,cpy,cmp,dec,xxx,iny,cmp,dex,xxx,cpy,cmp,dec,xxx,
+	cpy,cmp,xxx,xxx,cpy,cmp,dec,xxx,iny,cmp,dex,axs,cpy,cmp,dec,xxx,
 	bne,cmp,xxx,xxx,xxx,cmp,dec,xxx,cld,cmp,xxx,xxx,xxx,cmp,dec,xxx,
 	cpx,sbc,xxx,xxx,cpx,sbc,inc,xxx,inx,sbc,nop,xxx,cpx,sbc,inc,xxx,
 	beq,sbc,xxx,xxx,xxx,sbc,inc,xxx,sed,sbc,xxx,xxx,xxx,sbc,inc,xxx
@@ -72,7 +73,7 @@ static int opcodes[256] = {
 
 static int modes[256] = {
 	imp,indx,xxx,xxx,zp,zp,zp,xxx,imp,imm,acc,xxx,abs,abs,abs,xxx,
-	rel,indy,xxx,xxx,xxx,zpx,zpx,xxx,imp,absy,xxx,xxx,xxx,absx,absx,xxx,
+	rel,indy,indy,xxx,xxx,zpx,zpx,xxx,imp,absy,xxx,xxx,xxx,absx,absx,xxx,
 	abs,indx,xxx,xxx,zp,zp,zp,xxx,imp,imm,acc,xxx,abs,abs,abs,xxx,
 	rel,indy,xxx,xxx,xxx,zpx,zpx,xxx,imp,absy,xxx,xxx,xxx,absx,absx,xxx,
 	imp,indx,xxx,xxx,zp,zp,zp,xxx,imp,imm,acc,xxx,abs,abs,abs,xxx,
@@ -81,9 +82,9 @@ static int modes[256] = {
 	rel,indy,xxx,xxx,xxx,zpx,zpx,xxx,imp,absy,xxx,xxx,xxx,absx,absx,xxx,
 	imm,indx,xxx,xxx,zp,zp,zp,xxx,imp,imm,acc,xxx,abs,abs,abs,xxx,
 	rel,indy,xxx,xxx,zpx,zpx,zpy,xxx,imp,absy,acc,xxx,xxx,absx,absx,xxx,
-	imm,indx,imm,xxx,zp,zp,zp,xxx,imp,imm,acc,xxx,abs,abs,abs,xxx,
+	imm,indx,imm,xxx,zp,zp,zp,xxx,imp,imm,acc,xxx,abs,abs,abs,abs,
 	rel,indy,xxx,xxx,zpx,zpx,zpy,xxx,imp,absy,acc,xxx,absx,absx,absy,xxx,
-	imm,indx,xxx,xxx,zp,zp,zp,xxx,imp,imm,acc,xxx,abs,abs,abs,xxx,
+	imm,indx,xxx,xxx,zp,zp,zp,xxx,imp,imm,acc,imm,abs,abs,abs,xxx,
 	rel,indy,xxx,xxx,zpx,zpx,zpx,xxx,imp,absy,acc,xxx,xxx,absx,absx,xxx,
 	imm,indx,xxx,xxx,zp,zp,zp,xxx,imp,imm,acc,xxx,abs,abs,abs,xxx,
 	rel,indy,xxx,xxx,zpx,zpx,zpx,xxx,imp,absy,acc,xxx,xxx,absx,absx,xxx
@@ -308,8 +309,7 @@ void cpuResetTo(unsigned short npc) {
 	pc = npc;
 }
 
-static inline void cpuParse(void) {
-	unsigned char opc = getmem(pc++);
+static inline void cpuParse(unsigned char opc) {
 	int cmd = opcodes[opc];
 	int addr = modes[opc];
 	int c;
@@ -589,6 +589,30 @@ static inline void cpuParse(void) {
 		setflags(FLAG_Z, !a);
 		setflags(FLAG_N, a&0x80);
 		break;
+	case slo:
+		bval = getaddr(addr);
+		setflags(FLAG_C, bval >> 7);
+		bval <<= 1;
+		setaddr(addr, bval);
+		a |= bval;
+		setflags(FLAG_Z, !a);
+		setflags(FLAG_N, a&0x80);
+		break;
+
+	case axs:
+		x = (x & a) - getaddr(addr);
+		setflags(FLAG_Z, a == 0);
+		setflags(FLAG_N, a > 127);
+		break;
+
+	case lax:
+		a = x = getaddr(addr);
+		setflags(FLAG_Z, a == 0);
+		setflags(FLAG_N, a & 0x80);
+		break;
+
+	default:
+		break;
 	}
 }
 
@@ -601,7 +625,7 @@ void cpuJSR(unsigned short npc, unsigned char na) {
 	pc = npc;
 	push(0);
 	push(0);
-	while(pc) cpuParse();
+	while(pc) cpuParse(getmem(pc++));
 }
 
 
