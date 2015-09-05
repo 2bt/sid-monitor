@@ -90,7 +90,7 @@ bool playing = false;
 
 void audio_callback(void* userdata, unsigned char* stream, int len) {
 
-	int y = keys[SDLK_RCTRL] | keys[SDLK_LCTRL];
+	int ctrl = keys[SDLK_RCTRL] | keys[SDLK_LCTRL];
 	int x = keys[SDLK_RIGHT] - keys[SDLK_LEFT];
 	x *= 1 + (keys[SDLK_LSHIFT] | keys[SDLK_RSHIFT]) * 5;
 
@@ -103,11 +103,10 @@ void audio_callback(void* userdata, unsigned char* stream, int len) {
 		}
 		else buffer[i] = 0;
 
-		if (!y) frame_pos += x > 0 ? x : x < 0 ? x : playing;
-		else frame_pos += x;
+		if (!ctrl) frame_pos += x > 0 ? x : x < 0 ? x : playing;
 
 		int d = (frame_pos >= FRAME_LENGTH) - (frame_pos < 0);
-		if (d || y) {
+		if (d || ctrl) {
 			frame_pos = (frame_pos + FRAME_LENGTH) % FRAME_LENGTH;
 			for (int c = 0; c < 3; c++) {
 				for (int r = 0; r < 7; r++) {
@@ -374,6 +373,15 @@ int main(int argc, char** argv) {
 
 				case SDLK_TAB:
 					SDL_EnableKeyRepeat(10, 10);
+					break;
+
+				case SDLK_LEFT:
+				case SDLK_RIGHT:
+					if (event.key.keysym.mod & (KMOD_LCTRL | KMOD_RCTRL)) {
+						record_pos += event.key.keysym.sym == SDLK_RIGHT;
+						record_pos -= event.key.keysym.sym == SDLK_LEFT;
+						frame_pos = 0;
+					}
 					break;
 
 				case SDLK_SPACE:
