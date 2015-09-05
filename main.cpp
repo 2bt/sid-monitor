@@ -22,11 +22,35 @@ enum {
 	RECORD_LENGTH = FRAMES_PER_SECOND * 60 * 10,
 };
 unsigned char record[RECORD_LENGTH][25];
-//short wavelog[RECORD_LENGTH][FRAME_LENGTH];
 
 char title[128];
 
 bool fill_record(const char* filename, int number) {
+
+	const char* dot = strrchr(filename, '.');
+	if (dot && strcmp(dot, ".txt") == 0) {
+		snprintf(title, 128, "%s\n", filename);
+
+		FILE* f = fopen(filename, "r");
+		if (!f) return false;
+
+		int n = 1;
+
+		unsigned int dt, addr, val;
+		while (fscanf(f, "%d [%d] = %x ", &dt, &addr, &val) == 3) {
+
+			int idle = 0;
+			while (idle++ < 10 && dt > 17000) {
+				dt -= 17000;
+				if (++n >= RECORD_LENGTH) goto END;
+				memcpy(&record[n], &record[n - 1], 25);
+			}
+			record[n][addr] = val;
+		}
+END:
+		fclose(f);
+		return true;
+	}
 
 	unsigned short init_addr;
 	unsigned short play_addr;
@@ -75,7 +99,6 @@ void audio_callback(void* userdata, unsigned char* stream, int len) {
 
 		if (playing) {
 			sid.clock(17734472 / (18 * MIXRATE)); // PAL
-			//wavelog[record_pos][frame_pos] =
 			buffer[i] = sid.output();
 		}
 		else buffer[i] = 0;
@@ -290,7 +313,9 @@ void draw() {
 int main(int argc, char** argv) {
 
 	if (argc < 2 || argc > 3) {
-		printf("usage: %s sidfile [number]\n", argv[0]);
+		printf("usage:\n");
+		printf(" %s sidfile [number]\n", argv[0]);
+		printf(" %s logfile\n", argv[0]);
 		return 0;
 	}
 
