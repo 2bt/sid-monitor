@@ -294,14 +294,23 @@ void draw() {
 			print(8 + r * 24, 24 + c * 16, "%02X", record[record_pos][c * 7 + r]);
 		}
 
+
+		int control = record[record_pos][c * 7 + 4];
+		print(200 - 8 * 2, 24 + c * 16, "%c%c%c%c",
+			".G"[!!(control & 1)],
+			".S"[!!(control & 2)],
+			".R"[!!(control & 4)],
+			".T"[!!(control & 8)]);
+
 		int n = cursor_note[c];
 		if (n > 0) {
-			print(200, 24 + c * 16, "%c%c%d",
+			print(232, 24 + c * 16, "%c%c%d",
 				"CCDDEFFGGAAB"[n % 12],
 				"-#-#--#-#-#-"[n % 12],
 				n / 12
 			);
 		}
+
 
 	}
 	for (int r = 0; r < 4; r++) {
