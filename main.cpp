@@ -111,7 +111,8 @@ void audio_callback(void* userdata, unsigned char* stream, int len) {
 			frame_pos = (frame_pos + FRAME_LENGTH) % FRAME_LENGTH;
 			for (int c = 0; c < 3; c++) {
 				for (int r = 0; r < 7; r++) {
-					int a = voice_flags[c] ? record[record_pos][c * 7 + r] : 0;
+					int a = record[record_pos][c * 7 + r];
+					if (r >= 5 && !voice_flags[c]) a = 0;
 					sid.write(c * 7 + r, a);
 				}
 			}
