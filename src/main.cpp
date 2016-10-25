@@ -1,83 +1,14 @@
-#include <stdio.h>
-#include <stdarg.h>
-#include <math.h>
+#include <cstdio>
+#include <cstdarg>
+#include <cmath>
 #include <SDL/SDL.h>
 #include <SDL/SDL_image.h>
 #include "resid-0.16/sid.h"
+#include "record.h"
 
 
-extern unsigned char memory[65536];
-unsigned short c64SidLoad(const char* filename, unsigned short* init_addr,
-	unsigned short* play_addr, unsigned char* sub_song_start,
-	unsigned char* max_sub_songs, unsigned char* speed, char* name,
-	char* author, char* copyright);
-void cpuJSR(unsigned short npc, unsigned char na);
-void c64Init(void);
 
-
-enum {
-	MIXRATE = 44100,
-	FRAMES_PER_SECOND = 50,
-	FRAME_LENGTH = MIXRATE / FRAMES_PER_SECOND,
-	RECORD_LENGTH = FRAMES_PER_SECOND * 60 * 10,
-};
-unsigned char record[RECORD_LENGTH][25];
-
-char title[128];
-
-bool fill_record(const char* filename, int number) {
-
-	const char* dot = strrchr(filename, '.');
-	if (dot && strcmp(dot, ".txt") == 0) {
-		snprintf(title, 128, "%s\n", filename);
-
-		FILE* f = fopen(filename, "r");
-		if (!f) return false;
-
-		int n = 1;
-
-		unsigned int dt, addr, val;
-		while (fscanf(f, "%d [%d] = %x ", &dt, &addr, &val) == 3) {
-
-			int idle = 0;
-			while (idle++ < 10 && dt > 17000) {
-				dt -= 17000;
-				if (++n >= RECORD_LENGTH) goto END;
-				memcpy(&record[n], &record[n - 1], 25);
-			}
-			record[n][addr] = val;
-		}
-END:
-		fclose(f);
-		return true;
-	}
-
-	unsigned short init_addr;
-	unsigned short play_addr;
-	unsigned char speed;
-	unsigned char song;
-	unsigned char max_songs;
-	char name[32];
-	char author[32];
-	char copyright[32];
-
-	c64Init();
-	int ret = c64SidLoad(filename, &init_addr, &play_addr, &song, &max_songs,
-		&speed, name, author, copyright);
-	if (!ret) return false;
-
-	if (number > 0 && number <= max_songs + 1) song = number - 1;
-
-	cpuJSR(init_addr, song);
-	snprintf(title, 128, "%s - %s - %s - %d/%d\n",
-		name, author, copyright, song + 1, max_songs + 1);
-
-	for (int i = 0; i < RECORD_LENGTH; i++) {
-		cpuJSR(play_addr, 0);
-		memcpy(&record[i][0], &memory[0xd400], 25);
-	}
-	return true;
-}
+Record record;
 
 
 SID sid;
@@ -110,12 +41,12 @@ void audio_callback(void* userdata, unsigned char* stream, int len) {
 			frame_pos = (frame_pos + FRAME_LENGTH) % FRAME_LENGTH;
 			for (int c = 0; c < 3; c++) {
 				for (int r = 0; r < 7; r++) {
-					int a = record[record_pos][c * 7 + r];
+					int a = record.get_reg(record_pos, c * 7 + r);
 					if (r >= 5 && !voice_flags[c]) a = 0;
 					sid.write(c * 7 + r, a);
 				}
 			}
-			for (int r = 21; r < 25; r++) sid.write(r, record[record_pos][r]);
+			for (int r = 21; r < 25; r++) sid.write(r, record.get_reg(record_pos, r));
 
 			record_pos += d;
 			if (record_pos >= RECORD_LENGTH) record_pos -= RECORD_LENGTH;
@@ -124,12 +55,12 @@ void audio_callback(void* userdata, unsigned char* stream, int len) {
 	}
 }
 
-
 bool filter_enabled = true;
 
 void start_audio() {
 	sid.reset();
-	sid.set_chip_model(MOS6581);
+//	sid.set_chip_model(MOS6581);
+	sid.set_chip_model(MOS8580);
 	sid.enable_filter(filter_enabled);
 	SDL_AudioSpec spec = { MIXRATE, AUDIO_S16SYS,
 		1, 0, 1024 / 2, 0, 0, &audio_callback, NULL
@@ -144,6 +75,7 @@ enum {
 	WIDTH = 1024, //800,
 	HEIGHT = 768 //600
 };
+
 SDL_Surface* screen;
 SDL_Surface* font_img;
 unsigned int* pixels;
@@ -228,15 +160,14 @@ void draw() {
 				for (int y = 0; y < HEIGHT; y++) set_pixel(x, y, 0x202020);
 		}
 
-		unsigned char* regs = record[(x + offset) / zoom];
+		int pos = (x + offset) / zoom;
 		for (int c = 0; c < 3; c++) {
 			if (!voice_flags[c]) continue;
 
-			unsigned char* voice = &regs[c * 7];
-
-			int gate = voice[4] & 1;
-			int noise = (voice[4] >> 7) & 1;
-			int freq = voice[0] + voice[1] * 256;
+			int gate  = record.get_reg(pos, c * 7 + 4) & 1;
+			int noise = record.get_reg(pos, c * 7 + 4) / 128;
+			int freq  = record.get_reg(pos, c * 7 + 0)
+			          + record.get_reg(pos, c * 7 + 1) * 256;
 
 			double real_freq = freq * 17734472.0 / (18 << 24);
 			double note = log2(real_freq / (double) a_freq) * 12.0;
@@ -266,7 +197,7 @@ void draw() {
 		}
 
 		if (show_filter) {
-			int filter_freq = regs[22];
+			int filter_freq = record.get_reg(pos, 22);
 			for (int y = HEIGHT - 1 - filter_freq; y < HEIGHT; y++)
 				set_pixel(x, y, get_pixel(x, y) | 0x0f0f00);
 		}
@@ -278,7 +209,7 @@ void draw() {
 	SDL_UnlockSurface(screen);
 
 	// print stuff
-	print(8, 8, "%s", title);
+	print(8, 8, "%s", record.get_title());
 	print(WIDTH - 8 * 20,  8, "       time:  %02d:%02d",
 		record_pos / FRAMES_PER_SECOND / 60,
 		record_pos / FRAMES_PER_SECOND % 60);
@@ -290,11 +221,11 @@ void draw() {
 		if (!voice_flags[c]) continue;
 
 		for (int r = 0; r < 7; r++) {
-			print(8 + r * 24, 24 + c * 16, "%02X", record[record_pos][c * 7 + r]);
+			print(8 + r * 24, 24 + c * 16, "%02X", record.get_reg(record_pos, c * 7 + r));
 		}
 
 
-		int control = record[record_pos][c * 7 + 4];
+		int control = record.get_reg(record_pos, c * 7 + 4);
 		print(200 - 8 * 2, 24 + c * 16, "%c%c%c%c",
 			".G"[!!(control & 1)],
 			".S"[!!(control & 2)],
@@ -303,17 +234,17 @@ void draw() {
 
 		int n = cursor_note[c];
 		if (n > 0) {
-			print(232, 24 + c * 16, "%c%c%d",
+			print(232, 24 + c * 16, "%c%c%d %d",
 				"CCDDEFFGGAAB"[n % 12],
 				"-#-#--#-#-#-"[n % 12],
-				n / 12
-			);
+				n / 12,
+				n);
 		}
 
 
 	}
 	for (int r = 0; r < 4; r++) {
-		print(8 + r * 24, 72, "%02X", record[record_pos][21 + r]);
+		print(8 + r * 24, 72, "%02X", record.get_reg(record_pos, 21 + r));
 	}
 
 }
@@ -328,7 +259,7 @@ int main(int argc, char** argv) {
 		return 0;
 	}
 
-	if (!fill_record(argv[1], argc == 3 ? atoi(argv[2]) : 0)) {
+	if (!record.load(argv[1], argc == 3 ? atoi(argv[2]) : 0)) {
 		printf("read error\n");
 		return 1;
 	}
