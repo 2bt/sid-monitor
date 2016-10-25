@@ -70,15 +70,8 @@ void start_audio() {
 }
 
 
-
-enum {
-	WIDTH = 1024, //800,
-	HEIGHT = 768 //600
-};
-
 SDL_Surface* screen;
 SDL_Surface* font_img;
-unsigned int* pixels;
 int a_freq = 440;
 int zoom = 3;
 int vert_zoom = 10;
@@ -90,13 +83,13 @@ bool show_bars = true;
 
 
 inline unsigned int get_pixel(int x, int y) {
-	if (x >= 0 && x < WIDTH && y > 0 && y <= HEIGHT)
-		return pixels[x + y * WIDTH];
+	if (x >= 0 && x < screen->w && y >= 0 && y < screen->h)
+		return ((unsigned int*)screen->pixels)[x + y * screen->pitch / 4];
 	return 0;
 }
 inline void set_pixel(int x, int y, unsigned int color) {
-	if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT)
-		pixels[x + y * WIDTH] = color;
+	if (x >= 0 && x < screen->w && y >= 0 && y < screen->h)
+		((unsigned int*)screen->pixels)[x + y * screen->pitch / 4] = color;
 }
 void print(short x, short y, const char* text, ...) {
 	char line[256];
@@ -126,17 +119,17 @@ void print(short x, short y, const char* text, ...) {
 
 void draw() {
 	SDL_FillRect(screen, NULL, 0x000000);
-	SDL_Rect rect = { 0, 0, WIDTH, 0 };
+	SDL_Rect rect = { 0, 0, screen->w, 0 };
 
-	for (int n = 0; n < HEIGHT / vert_zoom + 2; n++) {
-		int no = n - HEIGHT / vert_zoom / 2;
-		int y = HEIGHT / 2 - vert_zoom / 2 + no * vert_zoom;
+	for (int n = 0; n < screen->h / vert_zoom + 2; n++) {
+		int no = n - screen->h / vert_zoom / 2;
+		int y = screen->h / 2 - vert_zoom / 2 + no * vert_zoom;
 		rect.y = y;
 		rect.h = vert_zoom - 1;
 		int note = (vert_pos - no + 1200 - 3);
 
 		static const unsigned int key_colors[] = {
-			0x0f0f0f, 0x040404, 0x1f1f1f
+			0x222222, 0x111111, 0x333333
 		};
 		SDL_FillRect(screen, &rect, key_colors["210100101010"[note%12] - '0']);
 
@@ -147,17 +140,17 @@ void draw() {
 
 	int cursor = (record_pos * FRAME_LENGTH + frame_pos) * zoom / FRAME_LENGTH;
 	int offset = 0;
-	if (cursor > WIDTH / 2) {
-		offset = cursor - WIDTH / 2;
-		int max = (RECORD_LENGTH * FRAME_LENGTH) * zoom / FRAME_LENGTH - WIDTH;
+	if (cursor > screen->w / 2) {
+		offset = cursor - screen->w / 2;
+		int max = (RECORD_LENGTH * FRAME_LENGTH) * zoom / FRAME_LENGTH - screen->w;
 		if (offset > max) offset = max;
 	}
 	int cursor_note[3];
-	for (int x = 0; x < WIDTH; x++) {
+	for (int x = 0; x < screen->w; x++) {
 
 		if (show_bars) {
 			if ((x + offset - zoom * bar_offset) % (zoom * bar_length) == 0)
-				for (int y = 0; y < HEIGHT; y++) set_pixel(x, y, 0x202020);
+				for (int y = 0; y < screen->h; y++) set_pixel(x, y, 0x444444);
 		}
 
 		int pos = (x + offset) / zoom;
@@ -176,11 +169,10 @@ void draw() {
 			}
 
 
-			int y = HEIGHT / 2 - (note - vert_pos) * vert_zoom;
+			int y = screen->h / 2 - (note - vert_pos) * vert_zoom;
 
 			unsigned int color = 0xff << (18 - c * 8);
 			if (noise) color |= 0x666666;
-
 
 			color = COLOR_RGB(
 				COLOR_R(color) * (1 + gate * 2) / 3,
@@ -198,24 +190,24 @@ void draw() {
 
 		if (show_filter) {
 			int filter_freq = record.get_reg(pos, 22);
-			for (int y = HEIGHT - 1 - filter_freq; y < HEIGHT; y++)
+			for (int y = screen->h - 1 - filter_freq; y < screen->h; y++)
 				set_pixel(x, y, get_pixel(x, y) | 0x0f0f00);
 		}
 
 		// cursor
 		if (x + offset == cursor)
-			for (int y = 0; y < HEIGHT; y++) set_pixel(x, y, 0x606060);
+			for (int y = 0; y < screen->h; y++) set_pixel(x, y, 0x888888);
 	}
 	SDL_UnlockSurface(screen);
 
 	// print stuff
 	print(8, 8, "%s", record.get_title());
-	print(WIDTH - 8 * 20,  8, "       time:  %02d:%02d",
+	print(screen->w - 8 * 20,  8, "       time:  %02d:%02d",
 		record_pos / FRAMES_PER_SECOND / 60,
 		record_pos / FRAMES_PER_SECOND % 60);
-	print(WIDTH - 8 * 20, 24, "   position: %6d", record_pos);
-	print(WIDTH - 8 * 20, 40, " bar length: %6d", bar_length);
-	print(WIDTH - 8 * 20, 56, "     tuning: %6d", a_freq);
+	print(screen->w - 8 * 20, 24, "   position: %6d", record_pos);
+	print(screen->w - 8 * 20, 40, " bar length: %6d", bar_length);
+	print(screen->w - 8 * 20, 56, "     tuning: %6d", a_freq);
 
 	for (int c = 0; c < 3; c++) {
 		if (!voice_flags[c]) continue;
@@ -266,15 +258,13 @@ int main(int argc, char** argv) {
 
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) return 1;
-	screen = SDL_SetVideoMode(WIDTH, HEIGHT, 32, SDL_HWSURFACE | SDL_DOUBLEBUF);
+	screen = SDL_SetVideoMode(800, 600, 32, SDL_HWSURFACE | SDL_DOUBLEBUF | SDL_RESIZABLE);
 	if (!screen) {
 		SDL_Quit();
 		return 1;
 	}
 	keys = SDL_GetKeyState(NULL);
-	pixels = (unsigned int*) screen->pixels;
 	font_img = IMG_Load("font.png");
-
 
 	start_audio();
 
@@ -285,6 +275,11 @@ int main(int argc, char** argv) {
 			switch (event.type) {
 			case SDL_QUIT:
 				running = false;
+				break;
+
+			case SDL_VIDEORESIZE:
+				screen = SDL_SetVideoMode(event.resize.w, event.resize.h,
+					32, SDL_HWSURFACE | SDL_DOUBLEBUF | SDL_RESIZABLE);
 				break;
 
 			case SDL_KEYUP:
