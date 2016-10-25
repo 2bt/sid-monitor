@@ -119,7 +119,7 @@ void print(short x, short y, const char* text, ...) {
 
 void draw() {
 	SDL_FillRect(screen, NULL, 0x000000);
-	SDL_Rect rect = { 0, 0, screen->w, 0 };
+	SDL_Rect rect = { 0, 0, (Uint16) screen->w, 0 };
 
 	for (int n = 0; n < screen->h / vert_zoom + 2; n++) {
 		int no = n - screen->h / vert_zoom / 2;
