@@ -19,8 +19,8 @@ enum {
 	cld, cli, clv, cmp, cpx, cpy, dec, dex, dey, eor, inc, inx, iny, jmp,
 	jsr, lda, ldx, ldy, lsr, nop, ora, pha, php, pla, plp, rol, ror, rti,
 	rts, sbc, sec, sed, sei, sta, stx, sty, tax, tay, tsx, txa, txs, tya,
+	slo, axs, lax,
 	xxx,
-	slo,axs,lax
 };
 
 unsigned char memory[65536];
@@ -291,7 +291,7 @@ static void branch(int flag) {
 	}
 }
 
-// ----------------------------------------------------- ffentliche Routinen
+// interface
 
 void cpuReset() {
 	a = x = y = 0;
@@ -589,6 +589,7 @@ static inline void cpuParse(unsigned char opc) {
 		setflags(FLAG_Z, !a);
 		setflags(FLAG_N, a&0x80);
 		break;
+
 	case slo:
 		bval = getaddr(addr);
 		setflags(FLAG_C, bval >> 7);
@@ -635,15 +636,12 @@ void c64Init(void) {
 }
 
 unsigned short LoadSIDFromMemory(void *pSidData, unsigned short *load_addr,
-	unsigned short *init_addr, unsigned short *play_addr,
-	unsigned char *subsongs, unsigned char *startsong, unsigned char *speed,
-	unsigned short size) {
+		unsigned short *init_addr, unsigned short *play_addr,
+		unsigned char *subsongs, unsigned char *startsong, unsigned char *speed,
+		unsigned short size) {
 
-	unsigned char *pData;
-	unsigned char data_file_offset;
-
-	pData = (unsigned char*)pSidData;
-	data_file_offset = pData[7];
+	unsigned char *pData = (unsigned char*)pSidData;
+	unsigned char data_file_offset = pData[7];
 
 	*load_addr = pData[8]<<8;
 	*load_addr|= pData[9];
@@ -678,25 +676,17 @@ unsigned short c64SidLoad(const char* filename, unsigned short* init_addr,
 	unsigned char* max_sub_songs, unsigned char* speed, char* name,
 	char* author, char* copyright) {
 
-	int i;
 	FILE* f = fopen(filename, "rb");
 	if(!f) return 0;
 
-	// Check header
+	// check header
 	char PSID[4];
 	if(!fread(PSID, 4, 1, f) && strncmp(PSID, "PSID", 4)) return 0;
 
-	// Name holen
 	fseek(f, 0x16, 0);
-	for(i = 0; i < 32; i++) name[i] = fgetc(f);
-
-	// Author holen
-	fseek(f, 0x36, 0);
-	for(i = 0; i < 32; i++) author[i] = fgetc(f);
-
-	// Copyright holen
-	fseek(f, 0x56, 0);
-	for(i = 0; i < 32; i++) copyright[i] = fgetc(f);
+	fread(name, 1, 32, f);
+	fread(author, 1, 32, f);
+	fread(copyright, 1, 32, f);
 
 	unsigned char sidmem[65536];
 	unsigned short load_addr;
