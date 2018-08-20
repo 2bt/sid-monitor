@@ -53,41 +53,41 @@ void setmem(unsigned short addr, unsigned char value) {
 #define rel 13
 
 static int opcodes[256] = {
-	brk,ora,xxx,xxx,xxx,ora,asl,xxx,php,ora,asl,xxx,xxx,ora,asl,xxx,
-	bpl,ora,xxx,xxx,xxx,ora,asl,xxx,clc,ora,xxx,xxx,xxx,ora,asl,xxx,
-	jsr,and_,slo,xxx,bit,and_,rol,xxx,plp,and_,rol,xxx,bit,and_,rol,xxx,
-	bmi,and_,xxx,xxx,xxx,and_,rol,xxx,sec,and_,xxx,xxx,nop,and_,rol,xxx,
-	rti,eor,xxx,xxx,xxx,eor,lsr,xxx,pha,eor,lsr,xxx,jmp,eor,lsr,xxx,
-	bvc,eor,xxx,xxx,xxx,eor,lsr,xxx,cli,eor,xxx,xxx,xxx,eor,lsr,xxx,
-	rts,adc,xxx,xxx,xxx,adc,ror,xxx,pla,adc,ror,xxx,jmp,adc,ror,xxx,
-	bvs,adc,xxx,xxx,xxx,adc,ror,xxx,sei,adc,xxx,xxx,xxx,adc,ror,xxx,
-	xxx,sta,xxx,xxx,sty,sta,stx,xxx,dey,xxx,txa,xxx,sty,sta,stx,xxx,
-	bcc,sta,xxx,xxx,sty,sta,stx,xxx,tya,sta,txs,xxx,xxx,sta,xxx,xxx,
-	ldy,lda,ldx,xxx,ldy,lda,ldx,lax,tay,lda,tax,xxx,ldy,lda,ldx,lax,
-	bcs,lda,xxx,lax,ldy,lda,ldx,xxx,clv,lda,tsx,xxx,ldy,lda,ldx,xxx,
-	cpy,cmp,xxx,xxx,cpy,cmp,dec,xxx,iny,cmp,dex,axs,cpy,cmp,dec,xxx,
-	bne,cmp,xxx,xxx,xxx,cmp,dec,xxx,cld,cmp,xxx,xxx,xxx,cmp,dec,xxx,
-	cpx,sbc,xxx,xxx,cpx,sbc,inc,xxx,inx,sbc,nop,xxx,cpx,sbc,inc,xxx,
-	beq,sbc,xxx,xxx,xxx,sbc,inc,xxx,sed,sbc,xxx,xxx,xxx,sbc,inc,xxx
+    brk,  ora,   xxx,  xxx,  xxx,  ora,   asl,  xxx,  php,  ora,   asl,  xxx,  xxx,  ora,   asl,  xxx,
+    bpl,  ora,   xxx,  xxx,  xxx,  ora,   asl,  xxx,  clc,  ora,   xxx,  xxx,  xxx,  ora,   asl,  xxx,
+    jsr,  and_,  slo,  xxx,  bit,  and_,  rol,  xxx,  plp,  and_,  rol,  xxx,  bit,  and_,  rol,  xxx,
+    bmi,  and_,  xxx,  xxx,  xxx,  and_,  rol,  xxx,  sec,  and_,  xxx,  xxx,  nop,  and_,  rol,  xxx,
+    rti,  eor,   xxx,  xxx,  xxx,  eor,   lsr,  xxx,  pha,  eor,   lsr,  xxx,  jmp,  eor,   lsr,  xxx,
+    bvc,  eor,   xxx,  xxx,  xxx,  eor,   lsr,  xxx,  cli,  eor,   xxx,  xxx,  xxx,  eor,   lsr,  xxx,
+    rts,  adc,   xxx,  xxx,  xxx,  adc,   ror,  xxx,  pla,  adc,   ror,  xxx,  jmp,  adc,   ror,  xxx,
+    bvs,  adc,   xxx,  xxx,  xxx,  adc,   ror,  xxx,  sei,  adc,   xxx,  xxx,  xxx,  adc,   ror,  xxx,
+    xxx,  sta,   xxx,  xxx,  sty,  sta,   stx,  xxx,  dey,  xxx,   txa,  xxx,  sty,  sta,   stx,  xxx,
+    bcc,  sta,   xxx,  xxx,  sty,  sta,   stx,  xxx,  tya,  sta,   txs,  xxx,  xxx,  sta,   xxx,  xxx,
+    ldy,  lda,   ldx,  xxx,  ldy,  lda,   ldx,  lax,  tay,  lda,   tax,  xxx,  ldy,  lda,   ldx,  lax,
+    bcs,  lda,   xxx,  lax,  ldy,  lda,   ldx,  xxx,  clv,  lda,   tsx,  xxx,  ldy,  lda,   ldx,  xxx,
+    cpy,  cmp,   xxx,  xxx,  cpy,  cmp,   dec,  xxx,  iny,  cmp,   dex,  axs,  cpy,  cmp,   dec,  xxx,
+    bne,  cmp,   xxx,  xxx,  xxx,  cmp,   dec,  xxx,  cld,  cmp,   xxx,  xxx,  xxx,  cmp,   dec,  xxx,
+    cpx,  sbc,   xxx,  xxx,  cpx,  sbc,   inc,  xxx,  inx,  sbc,   nop,  xxx,  cpx,  sbc,   inc,  xxx,
+    beq,  sbc,   xxx,  xxx,  xxx,  sbc,   inc,  xxx,  sed,  sbc,   xxx,  xxx,  xxx,  sbc,   inc,  xxx
 };
 
 static int modes[256] = {
-	imp, indx, xxx, xxx,  zp,  zp,  zp,  xxx, imp, imm,  acc, xxx,  abs,  abs,  abs,  xxx,
-	rel, indy, indy,xxx,  xxx, zpx, zpx, xxx, imp, absy, xxx, xxx,  xxx,  absx, absx, xxx,
-	abs, indx, xxx, xxx,  zp,  zp,  zp,  xxx, imp, imm,  acc, xxx,  abs,  abs,  abs,  xxx,
-	rel, indy, xxx, xxx,  xxx, zpx, zpx, xxx, imp, absy, xxx, absy, absx, absx, absx, xxx,
-	imp, indx, xxx, xxx,  zp,  zp,  zp,  xxx, imp, imm,  acc, xxx,  abs,  abs,  abs,  xxx,
-	rel, indy, xxx, xxx,  xxx, zpx, zpx, xxx, imp, absy, xxx, xxx,  xxx,  absx, absx, xxx,
-	imp, indx, xxx, xxx,  zp,  zp,  zp,  xxx, imp, imm,  acc, xxx,  ind,  abs,  abs,  xxx,
-	rel, indy, xxx, xxx,  xxx, zpx, zpx, xxx, imp, absy, xxx, xxx,  xxx,  absx, absx, xxx,
-	imm, indx, xxx, xxx,  zp,  zp,  zp,  xxx, imp, imm,  acc, xxx,  abs,  abs,  abs,  xxx,
-	rel, indy, xxx, xxx,  zpx, zpx, zpy, xxx, imp, absy, acc, xxx,  xxx,  absx, absx, xxx,
-	imm, indx, imm, xxx,  zp,  zp,  zp,  zp,  imp, imm,  acc, xxx,  abs,  abs,  abs,  abs,
-	rel, indy, xxx, indy, zpx, zpx, zpy, xxx, imp, absy, acc, xxx,  absx, absx, absy, xxx,
-	imm, indx, xxx, xxx,  zp,  zp,  zp,  xxx, imp, imm,  acc, imm,  abs,  abs,  abs,  xxx,
-	rel, indy, xxx, xxx,  zpx, zpx, zpx, xxx, imp, absy, acc, xxx,  xxx,  absx, absx, xxx,
-	imm, indx, xxx, xxx,  zp,  zp,  zp,  xxx, imp, imm,  acc, xxx,  abs,  abs,  abs,  xxx,
-	rel, indy, xxx, xxx,  zpx, zpx, zpx, xxx, imp, absy, acc, xxx,  xxx,  absx, absx, xxx
+    imp,  indx,  xxx,   xxx,   zp,   zp,   zp,   xxx,  imp,  imm,   acc,  xxx,   abs,   abs,   abs,   xxx,
+    rel,  indy,  indy,  xxx,   xxx,  zpx,  zpx,  xxx,  imp,  absy,  xxx,  xxx,   xxx,   absx,  absx,  xxx,
+    abs,  indx,  xxx,   xxx,   zp,   zp,   zp,   xxx,  imp,  imm,   acc,  xxx,   abs,   abs,   abs,   xxx,
+    rel,  indy,  xxx,   xxx,   xxx,  zpx,  zpx,  xxx,  imp,  absy,  xxx,  absy,  absx,  absx,  absx,  xxx,
+    imp,  indx,  xxx,   xxx,   zp,   zp,   zp,   xxx,  imp,  imm,   acc,  xxx,   abs,   abs,   abs,   xxx,
+    rel,  indy,  xxx,   xxx,   xxx,  zpx,  zpx,  xxx,  imp,  absy,  xxx,  xxx,   xxx,   absx,  absx,  xxx,
+    imp,  indx,  xxx,   xxx,   zp,   zp,   zp,   xxx,  imp,  imm,   acc,  xxx,   ind,   abs,   abs,   xxx,
+    rel,  indy,  xxx,   xxx,   xxx,  zpx,  zpx,  xxx,  imp,  absy,  xxx,  xxx,   xxx,   absx,  absx,  xxx,
+    imm,  indx,  xxx,   xxx,   zp,   zp,   zp,   xxx,  imp,  imm,   acc,  xxx,   abs,   abs,   abs,   xxx,
+    rel,  indy,  xxx,   xxx,   zpx,  zpx,  zpy,  xxx,  imp,  absy,  acc,  xxx,   xxx,   absx,  absx,  xxx,
+    imm,  indx,  imm,   xxx,   zp,   zp,   zp,   zp,   imp,  imm,   acc,  xxx,   abs,   abs,   abs,   abs,
+    rel,  indy,  xxx,   indy,  zpx,  zpx,  zpy,  xxx,  imp,  absy,  acc,  xxx,   absx,  absx,  absy,  xxx,
+    imm,  indx,  xxx,   xxx,   zp,   zp,   zp,   xxx,  imp,  imm,   acc,  imm,   abs,   abs,   abs,   xxx,
+    rel,  indy,  xxx,   xxx,   zpx,  zpx,  zpx,  xxx,  imp,  absy,  acc,  xxx,   xxx,   absx,  absx,  xxx,
+    imm,  indx,  xxx,   xxx,   zp,   zp,   zp,   xxx,  imp,  imm,   acc,  xxx,   abs,   abs,   abs,   xxx,
+    rel,  indy,  xxx,   xxx,   zpx,  zpx,  zpx,  xxx,  imp,  absy,  acc,  xxx,   xxx,   absx,  absx,  xxx
 };
 
 
@@ -313,6 +313,7 @@ static inline void cpuParse(unsigned char opc) {
 	int cmd = opcodes[opc];
 	int addr = modes[opc];
 	int c;
+
 	switch (cmd) {
 	case adc:
 		wval=(unsigned short)a+getaddr(addr)+((p&FLAG_C)?1:0);
