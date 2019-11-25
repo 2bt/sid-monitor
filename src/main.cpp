@@ -16,7 +16,7 @@ Record record;
 
 SID  sid;
 int  frame;
-bool playing        = true;
+bool playing        = false;
 bool chan_active[5] = { 1, 1, 1 };
 
 void tick() {
@@ -150,7 +150,8 @@ struct App : fx::App {
 
         for (int n = start_frame; n < start_frame + frames_per_screen; ++n) {
             if (n >= (int) record.states.size()) break;
-            auto const& state = record.states[n];
+            auto const& state      = record.states[n];
+            auto const& prev_state = record.states[n > 0 ? n - 1 : 0];
 
             int x = (n - start_frame) * scale_x;
 
@@ -161,9 +162,10 @@ struct App : fx::App {
                 float real_freq = freq * 17734472.0f * (1.0f / (18 << 24));
                 float pitch     = std::log2(real_freq / 440) * 12;
 
-                bool gate  = state.reg[c * 7 + 4] & 1;
-                int  wave  = state.reg[c * 7 + 4] >> 4;
-                bool noise = wave & 8;
+                bool gate       = state.reg[c * 7 + 4] & 1;
+                int  wave       = state.reg[c * 7 + 4] >> 4;
+                int  prev_wave  = prev_state.reg[c * 7 + 4] >> 4;
+                bool noise      = wave & 8;
 
                 float vol = (wave > 0 ? 1 : 0.2) * (1 + gate);
 
@@ -174,7 +176,12 @@ struct App : fx::App {
                 if (c == 2) fx::set_color(v*q, v*q, v);
 
                 int y = -(pitch + vert_pos) * scale_y + fx::screen_height() / 2;
-                fx::draw_rectangle(true, x, y, scale_x, 1 + scale_y - 2);
+                fx::draw_rectangle(true, x, y, scale_x, scale_y - 1);
+
+                // new note
+                if (prev_wave == 0) {
+                    fx::draw_rectangle(false, x - scale_x, y - scale_y, scale_x, scale_y * 3 - 1);
+                }
             }
 
             // filter
@@ -212,41 +219,37 @@ struct App : fx::App {
             int y = fx::screen_height() - (4 - c) * 24;
 
             bool filter = (state.reg[23] & (1 << c)) > 0;
-            fx::printf(7 * 48 + 8, y, "%c", " *"[filter]);
+            fx::printf(7 * 48 + 8, y, "%c", ".*"[filter]);
 
             int   freq      = state.reg[c * 7 + 0] | (state.reg[c * 7 + 1] << 8);
             float real_freq = freq * 17734472.0f * (1.0f / (18 << 24));
             int note        = int(57.5f + std::log2(real_freq / 440) * 12);
 
-            if (note > 0) {
-                fx::printf(23 * 16 + 8, y, "%c%c%d",
-                    "CCDDEFFGGAAB"[note % 12],
-                    "-#-#--#-#-#-"[note % 12],
-                    note / 12,
-                    note);
-            }
-
+            fx::printf(23 * 16 + 8, y, note > 0 ? "%c%c%d" : "...",
+                "CCDDEFFGGAAB"[note % 12],
+                "-#-#--#-#-#-"[note % 12],
+                note / 12,
+                note);
 
             int control = state.reg[c * 7 + 4];
-            fx::printf(27 * 16 + 8, y, "%c%c%c%c",
-                ".G"[!!(control & 1)],
-                ".S"[!!(control & 2)],
-                ".R"[!!(control & 4)],
-                ".T"[!!(control & 8)]);
-
             int pw = state.reg[c * 7 + 2] | ((state.reg[c * 7 + 3] & 0xf) << 8);
-            fx::printf(31 * 16 + 8, y, "%3d%%", pw * 100 / 0xfff);
-
+            fx::printf(27 * 16 + 8, y, "%c%c%c%c %c%c%c%c%3d%%",
+                    ".G"[!!(control & 0x01)],
+                    ".S"[!!(control & 0x02)],
+                    ".R"[!!(control & 0x04)],
+                    ".T"[!!(control & 0x08)],
+                    ".T"[!!(control & 0x10)],
+                    ".S"[!!(control & 0x20)],
+                    ".P"[!!(control & 0x40)],
+                    ".N"[!!(control & 0x80)],
+                    pw * 100 / 0xfff);
         }
 
         fx::printf(8, 8, "%s - %d/%d", record.song_name.c_str(), record.song_nr, record.song_count);
         fx::printf(8, 8 + 24, "%s", record.song_author.c_str());
         fx::printf(8, 8 + 48, "%s", record.song_released.c_str());
 
-        fx::printf(fx::screen_width() - 8 - 16 * 14, 8,      "   time: %02d:%02d",
-            frame / FRAMERATE / 60,
-            frame / FRAMERATE % 60);
-
+        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 0, "   time: %02d:%02d", frame / FRAMERATE / 60, frame / FRAMERATE % 60);
         fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 1, "    pos:%6d", f);
         fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 2, "    bar:%6d", bar);
         fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 3, " filter:   %s", filter_active ? " on" : "off");
