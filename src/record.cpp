@@ -1,76 +1,146 @@
+#include <fstream>
 #include <cstring>
-#include <cstdio>
-#include "record.h"
+#include "record.hpp"
+#include "cpu.hpp"
+
+class MyCPU : public CPU {
+public:
+    void jsr(uint16_t npc, uint8_t na, std::function<void(uint16_t, uint8_t)> f = nullptr) {
+        callback = f;
+        CPU::jsr(npc, na);
+    }
+
+    void setmem(uint16_t addr, uint8_t value) override {
+        if (callback) callback(addr, value);
+        ram[addr] = value;
+    }
+    uint8_t getmem(uint16_t addr) override {
+        return ram[addr];
+    }
+
+    std::array<uint8_t, 0x10000>           ram = {};
+    std::function<void(uint16_t, uint8_t)> callback;
+};
 
 
-extern unsigned char memory[65536];
-unsigned short c64SidLoad(const char* filename, unsigned short* init_addr,
-	unsigned short* play_addr, unsigned char* sub_song_start,
-	unsigned char* max_sub_songs, unsigned char* speed, char* name,
-	char* author, char* copyright);
-void cpuJSR(unsigned short npc, unsigned char na);
-void c64Init(void);
+struct Header {
+    uint8_t  magic[4];
+    uint16_t version;
+    uint16_t offset;
+    uint16_t load_addr;
+    uint16_t init_addr;
+    uint16_t play_addr;
+    uint16_t song_count;
+    uint16_t start_song;
+    uint32_t speed;
+    char     song_name[32];
+    char     song_author[32];
+    char     song_released[32];
+//    uint16_t flags;
+//    uint8_t  start_page;
+//    uint8_t  page_length;
+//    uint8_t  sid_addr_2;
+//    uint8_t  sid_addr_3;
+} __attribute__((packed));
 
 
+uint16_t swap(uint16_t v) { return ((v & 0xff) << 8) | ((v >> 8) & 0xff); }
+uint32_t swap(uint32_t v) { return  __builtin_bswap32(v); }
 
-bool Record::load(const char* filename, int number) {
 
-	// check suffix
+bool Record::load(const char* filename, int nr) {
+    states.clear();
+
+	// log
 	const char* dot = strrchr(filename, '.');
 	if (dot && strcmp(dot, ".txt") == 0) {
-
-		// load log file
-
-		snprintf(title, sizeof(title), "%s\n", filename);
-
 		FILE* f = fopen(filename, "r");
 		if (!f) return false;
-
-		int n = 1;
-
-		unsigned int dt, addr, val;
+        State s;
+		int dt, addr, val;
 		while (fscanf(f, "%d [%d] = %x ", &dt, &addr, &val) == 3) {
-
 			int idle = 0;
 			while (idle++ < 10 && dt > 17000) {
 				dt -= 17000;
-				if (++n >= RECORD_LENGTH) goto END;
-				memcpy(&data[n], &data[n - 1], 25);
+                states.emplace_back(s);
+                s.is_set = {};
 			}
-			data[n][addr] = val;
+			s.reg[addr] = val;
+            s.is_set[addr] = true;
 		}
-END:
 		fclose(f);
+		song_name = filename;
 		return true;
 	}
 
 
-	// load sid tune
+    std::ifstream ifs(filename, std::ios::binary | std::ios::ate);
+    if (!ifs.is_open()) {
+        printf("error: could not open file\n");
+        return false;
+    }
+    auto pos = ifs.tellg();
+    std::vector<uint8_t> data(pos);
+    ifs.seekg(0, std::ios::beg);
+    ifs.read((char*) data.data(), pos);
 
-	unsigned short init_addr;
-	unsigned short play_addr;
-	unsigned char speed;
-	unsigned char song;
-	unsigned char max_songs;
-	char name[32];
-	char author[32];
-	char copyright[32];
 
-	c64Init();
-	int ret = c64SidLoad(filename, &init_addr, &play_addr, &song, &max_songs,
-		&speed, name, author, copyright);
-	if (!ret) return false;
 
-	if (number > 0 && number <= max_songs + 1) song = number - 1;
+    Header* h = (Header*) data.data();
+    h->version    = swap(h->version);
+    h->offset     = swap(h->offset);
+    h->load_addr  = swap(h->load_addr);
+    h->init_addr  = swap(h->init_addr);
+    h->play_addr  = swap(h->play_addr);
+    h->song_count = swap(h->song_count);
+    h->start_song = swap(h->start_song);
+    h->speed      = swap(h->speed);
 
-	cpuJSR(init_addr, song);
-	snprintf(title, sizeof(title), "%s - %s - %s - %d/%d\n",
-		name, author, copyright, song + 1, max_songs + 1);
+    // ???
+    h->load_addr = data[h->offset] | (data[h->offset + 1] << 8);
 
-	for (int i = 0; i < RECORD_LENGTH; i++) {
-		cpuJSR(play_addr, 0);
-		memcpy(&data[i][0], &memory[0xd400], 25);
-	}
-	return true;
+    printf("magic:       %.4s\n", h->magic);
+    printf("version:     %d\n", h->version);
+    printf("offset:      %04x\n", h->offset);
+    printf("load addr:   %04x\n", h->load_addr);
+    printf("init addr:   %04x\n", h->init_addr);
+    printf("play addr:   %04x\n", h->play_addr);
+    printf("song count:  %d\n", h->song_count);
+    printf("start song:  %d\n", h->start_song);
+    printf("speed:       %08x\n", h->speed);
+    printf("song name:   %.32s\n", h->song_name);
+    printf("song author: %.32s\n", h->song_author);
+    printf("copyright:   %.32s\n", h->song_released);
+
+    song_name     = h->song_name;
+    song_author   = h->song_author;
+    song_released = h->song_released;
+
+    song_nr    = nr > 0 ? nr : h->start_song;
+    song_count = h->song_count;
+
+    MyCPU cpu;
+
+    uint16_t j = h->load_addr;
+    for (int i = 2 + h->offset; i < (int) data.size(); ++i) {
+        cpu.ram[j++] = data[i];
+    }
+
+    // init song
+    cpu.jsr(h->init_addr, song_nr - 1);
+
+    // play song
+    for (int m = 0; m < 60 * 50 * 10; ++m) {
+        State s;
+        cpu.jsr(h->play_addr, 0, [&s](uint16_t addr, uint8_t value) {
+            if (addr >= 0xd400 && addr < 0xd400 + s.is_set.size()) {
+                s.is_set[addr - 0xd400] = true;
+            }
+        });
+        for (size_t i = 0; i < s.reg.size(); ++i) s.reg[i] = cpu.ram[0xd400 + i];
+        states.emplace_back(s);
+    }
+
+    return true;
 }
 
