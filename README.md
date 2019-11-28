@@ -60,10 +60,6 @@ Each channel is shown in a certain color:
         <td>Toggle filter.</td>
     </tr>
 	<tr>
-        <td><code>F</code></td>
-        <td>Toggle filter.</td>
-    </tr>
-	<tr>
         <td><code>M</code></td>
         <td>Toggle chip model.</td>
     </tr>
