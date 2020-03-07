@@ -36,11 +36,11 @@ struct Header {
     char     song_name[32];
     char     song_author[32];
     char     song_released[32];
-//    uint16_t flags;
-//    uint8_t  start_page;
-//    uint8_t  page_length;
-//    uint8_t  sid_addr_2;
-//    uint8_t  sid_addr_3;
+    uint16_t flags;
+    uint8_t  start_page;
+    uint8_t  page_length;
+    uint8_t  sid_addr_2;
+    uint8_t  sid_addr_3;
 } __attribute__((packed));
 
 
@@ -111,6 +111,14 @@ bool Record::load(const char* filename, int nr) {
     printf("song name:   %.32s\n", h->song_name);
     printf("song author: %.32s\n", h->song_author);
     printf("copyright:   %.32s\n", h->song_released);
+    if (h->version > 1) {
+        h->flags = swap(h->flags);
+        printf("flags:       %04x\n", h->flags);
+        printf("start page:  %d\n", h->start_page);
+        printf("page length: %d\n", h->page_length);
+        printf("sid 2 addr:  %d\n", h->sid_addr_2);
+        printf("sid 3 addr:  %d\n", h->sid_addr_3);
+    }
 
     song_name     = h->song_name;
     song_author   = h->song_author;
@@ -128,6 +136,7 @@ bool Record::load(const char* filename, int nr) {
 
     // init song
     cpu.jsr(h->init_addr, song_nr - 1);
+//    printf("%02X%02X\n", cpu.ram[0xdc05], cpu.ram[0xdc04]);
 
     // play song
     for (int m = 0; m < 60 * 50 * 10; ++m) {

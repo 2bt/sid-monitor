@@ -9,9 +9,7 @@ find_package(SDL2 REQUIRED)
 include_directories(${SDL2_INCLUDE_DIRS})
 
 file(GLOB SRC
-    "src/*.hpp"
     "src/*.cpp"
-    "src/resid-0.16/*.h"
     "src/resid-0.16/*.cc"
     )
 

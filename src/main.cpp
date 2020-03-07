@@ -2,22 +2,28 @@
 #include <SDL2/SDL.h>
 #include "record.hpp"
 #include "fx.hpp"
-#include "resid-0.16/sid.h"
-
+#include "sidengine.hpp"
 
 
 enum {
     MIXRATE           = 44100,
-    FRAMERATE         = 50,
+    BUFFER_SIZE       = MIXRATE / 50,
+    SPEED             = 1,
+    FRAMERATE         = 50 * SPEED,
     SAMPLES_PER_FRAME = MIXRATE / FRAMERATE,
+    CHANNEL_COUT      = 3,
 };
 
-Record record;
+std::array<SidEngine*, 2> engines = {
+    SidEngine::create_resid(),
+    SidEngine::create_tinysid(),
+};
 
-SID  sid;
-int  frame;
-bool playing        = false;
-bool chan_active[5] = { 1, 1, 1 };
+Record     record;
+int        frame;
+bool       playing       = false;
+bool       chan_active[] = { 1, 1, 1 };
+int        engine_nr     = 0;
 
 void tick() {
     const Uint8* ks = SDL_GetKeyboardState(nullptr);
@@ -30,34 +36,33 @@ void tick() {
         frame = std::min<int>(std::max<int>(frame, 0), record.states.size());
     }
 
-    auto const& state = record.states[frame];
-    for (int c = 0; c < 3; c++) {
+    std::array<uint8_t, 25> reg = record.states[frame].reg;
+    for (int c = 0; c < CHANNEL_COUT; c++) {
         for (int r = 0; r < 7; r++) {
-            int a = state.reg[c * 7 + r];
+            uint8_t& a = reg[c * 7 + r];
             // mute
             if (!chan_active[c] && r == 4) a &= 0xf0;
             if (!chan_active[c] && r == 5) a = 0xff;
             if (!chan_active[c] && r == 6) a = 0x00;
-            sid.write(c * 7 + r, a);
         }
     }
-    for (int r = 21; r < 25; r++) sid.write(r, state.reg[r]);
+    engines[engine_nr]->update_registers(reg.data());
 }
 
-
-int16_t mix() {
-    static size_t sample = 0;
-    if (sample == 0) tick();
-    if (++sample >= SAMPLES_PER_FRAME) sample = 0;
-    if (!playing) return 0;
-    sid.clock(17734472 / (18 * MIXRATE)); // PAL
-    return sid.output();
-}
-
-
-void audio_callback(void* u, Uint8* stream, int len) {
-    short* buf = (short*) stream;
-    for (; len > 0; len -= 2) *buf++ = mix();
+void audio_callback(void* u, Uint8* stream, int bytes) {
+    int16_t* buffer = (int16_t*) stream;
+    int      length = bytes / sizeof(int16_t);
+    static int sample = 0;
+    while (length > 0) {
+        if (sample == 0) tick();
+        int l = std::min(SAMPLES_PER_FRAME - sample, length);
+        sample += l;
+        if (sample == SAMPLES_PER_FRAME) sample = 0;
+        length -= l;
+        if (playing) engines[engine_nr]->mix(buffer, l);
+        else for (int i = 0; i < l; ++i) buffer[i] = 0;
+        buffer += l;
+    }
 }
 
 
@@ -68,16 +73,15 @@ struct App : fx::App {
     int  offset        = 3;
     int  bar           = 48;
     bool show_bar      = true;
-    bool use_old_chip  = false;
     bool filter_active = true;
     int  vert_pos      = 16;
+    SidEngine::ChipModel chip_model = SidEngine::MOS8580;
 
     void init() override {
 
-        sid.reset();
-        sid.set_chip_model(use_old_chip ? MOS6581 : MOS8580);
+        engines[engine_nr]->set_chip_model(chip_model);
 
-        SDL_AudioSpec spec = { MIXRATE, AUDIO_S16, 1, 0, SAMPLES_PER_FRAME, 0, 0, &audio_callback };
+        SDL_AudioSpec spec = { MIXRATE, AUDIO_S16, 1, 0, BUFFER_SIZE, 0, 0, &audio_callback };
         SDL_OpenAudio(&spec, nullptr);
         SDL_PauseAudio(0);
     }
@@ -107,8 +111,17 @@ struct App : fx::App {
         case SDL_SCANCODE_2: chan_active[1] ^= 1; break;
         case SDL_SCANCODE_3: chan_active[2] ^= 1; break;
 
-        case SDL_SCANCODE_F: sid.enable_filter(filter_active ^= 1); break;
-        case SDL_SCANCODE_M: sid.set_chip_model((use_old_chip ^= 1) ? MOS6581 : MOS8580); break;
+        case SDL_SCANCODE_F: engines[engine_nr]->enable_filter(filter_active ^= 1); break;
+        case SDL_SCANCODE_M:
+            chip_model = chip_model == SidEngine::MOS6581 ? SidEngine::MOS8580 : SidEngine::MOS6581;
+            engines[engine_nr]->set_chip_model(chip_model);
+            break;
+
+        case SDL_SCANCODE_TAB:
+            engine_nr = (engine_nr + 1) % engines.size();
+            engines[engine_nr]->set_chip_model(chip_model);
+            engines[engine_nr]->enable_filter(filter_active);
+            break;
 
         default: break;
         }
@@ -155,7 +168,7 @@ struct App : fx::App {
 
             int x = (n - start_frame) * scale_x;
 
-            for (int c = 0; c < 3; c++) {
+            for (int c = 0; c < CHANNEL_COUT; c++) {
                 if (!chan_active[c]) continue;
 
                 int   freq      = state.reg[c * 7 + 0] | (state.reg[c * 7 + 1] << 8);
@@ -179,7 +192,7 @@ struct App : fx::App {
                 fx::draw_rectangle(true, x, y, scale_x, scale_y - 1);
 
                 // new note
-                if (prev_wave == 0) {
+                if (wave != 0 && prev_wave == 0) {
                     fx::draw_rectangle(false, x - scale_x, y - scale_y, scale_x, scale_y * 3 - 1);
                 }
             }
@@ -208,14 +221,14 @@ struct App : fx::App {
         for (int i = 0; i < (int) state.is_set.size(); ++i) {
             int c = i / 7;
             int r = i % 7;
-            if (c < 3 && !chan_active[c]) continue;
+            if (c < CHANNEL_COUT && !chan_active[c]) continue;
             if (state.is_set[i]) fx::set_font_color(250, 250, 250);
             else                 fx::set_font_color(150, 150, 150);
             fx::printf(r * 48 + 8, fx::screen_height() - (4 - c) * 24, "%02X", state.reg[i]);
         }
         fx::set_font_color(250, 250, 250);
-        for (int c = 0; c < 3; ++c) {
-            if (c < 3 && !chan_active[c]) continue;
+        for (int c = 0; c < CHANNEL_COUT; ++c) {
+            if (!chan_active[c]) continue;
             int y = fx::screen_height() - (4 - c) * 24;
 
             bool filter = (state.reg[23] & (1 << c)) > 0;
@@ -249,12 +262,13 @@ struct App : fx::App {
         fx::printf(8, 8 + 24, "%s", record.song_author.c_str());
         fx::printf(8, 8 + 48, "%s", record.song_released.c_str());
 
-        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 0, "   time: %02d:%02d", frame / FRAMERATE / 60, frame / FRAMERATE % 60);
-        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 1, "    pos:%6d", f);
-        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 2, "    bar:%6d", bar);
-        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 3, " filter:   %s", filter_active ? " on" : "off");
-        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 4, "  model:  %s", use_old_chip ? "6581" : "8580");
-
+        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 0, "  time:  %02d:%02d", frame / FRAMERATE / 60, frame / FRAMERATE % 60);
+        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 1, "   pos: %6d", f);
+        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 2, "   bar: %6d", bar);
+        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 3, "filter:    %s", filter_active ? " on" : "off");
+        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 4, " model:   %s",
+                   chip_model == SidEngine::MOS6581 ? "6581" : "8580");
+        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 5, "engine:%7s", engines[engine_nr]->name());
 
         const Uint8* ks = SDL_GetKeyboardState(nullptr);
         vert_pos += ks[SDL_SCANCODE_DOWN] - ks[SDL_SCANCODE_UP];
