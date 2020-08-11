@@ -11,6 +11,7 @@ class ReSidEngine : public SidEngine {
 public:
     ReSidEngine() {
         m_sid.reset();
+        m_sid.set_sampling_parameters(985248, SAMPLE_RESAMPLE_INTERPOLATE, MIXRATE);
     }
     char const* name() const override { return "reSID"; }
     void enable_filter(bool e) override {
@@ -23,10 +24,8 @@ public:
         for (int i = 0; i < REGISTER_COUNT; ++i) m_sid.write(i, regs[i]);
     }
     void mix(int16_t* buffer, int length) override {
-        for (int i = 0; i < length; ++i) {
-            m_sid.clock(17734472 / (18 * MIXRATE)); // PAL
-            buffer[i] = m_sid.output();
-        }
+        int c = 999999999;
+        m_sid.clock(c, buffer, length);
     }
 private:
     SID m_sid;
@@ -73,9 +72,6 @@ private:
     };
 
     struct Channel {
-        bool     gate;
-        int      pulsewidth_acc;
-
         State    state;
         int      adsr[4];
         int      flags;
@@ -94,7 +90,6 @@ private:
     };
 
     struct {
-        int     freq_acc;
         uint8_t type;
         float   resonance;
         float   freq;

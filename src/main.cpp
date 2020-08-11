@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <chrono>
 #include <SDL2/SDL.h>
 #include "record.hpp"
 #include "fx.hpp"
@@ -24,6 +25,7 @@ int        frame;
 bool       playing       = false;
 bool       chan_active[] = { 1, 1, 1 };
 int        engine_nr     = 0;
+size_t     render_time   = 0;
 
 void tick() {
     const Uint8* ks = SDL_GetKeyboardState(nullptr);
@@ -50,6 +52,8 @@ void tick() {
 }
 
 void audio_callback(void* u, Uint8* stream, int bytes) {
+    auto then = std::chrono::steady_clock::now();
+
     int16_t* buffer = (int16_t*) stream;
     int      length = bytes / sizeof(int16_t);
     static int sample = 0;
@@ -62,6 +66,20 @@ void audio_callback(void* u, Uint8* stream, int bytes) {
         if (playing) engines[engine_nr]->mix(buffer, l);
         else for (int i = 0; i < l; ++i) buffer[i] = 0;
         buffer += l;
+    }
+
+    // measure time
+    auto now = std::chrono::steady_clock::now();
+    size_t nano = std::chrono::duration_cast<std::chrono::microseconds>(now - then).count();
+    static size_t nano_acc = 0;
+    static size_t count = 0;
+    nano_acc += nano;
+    count += bytes / 2;
+    if (count >= MIXRATE) {
+        render_time = nano_acc / (count / float(MIXRATE));
+        nano_acc = 0;
+        count = 0;
+//        printf("%10lu\n", render_time);
     }
 }
 
@@ -86,7 +104,7 @@ struct App : fx::App {
         SDL_PauseAudio(0);
     }
 
-    const char* title() const { return "sid-monitor"; }
+    const char* title() const override { return "sid-monitor"; }
 
     void key(int code) override {
         const Uint8* ks = SDL_GetKeyboardState(nullptr);

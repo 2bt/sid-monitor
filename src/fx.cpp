@@ -86,14 +86,16 @@ int run(App& app) {
     SDL_SetRenderDrawBlendMode(m_renderer, SDL_BLENDMODE_ADD);
 
     // font
-    std::vector<uint16_t> data(16 * 6 * 8 * 8);
-    for (int i = 0; i < (int) data.size(); ++i) {
-        data[i] = (FONT[i / 8] & (1 << (7 - i % 8))) ? 0xffff : 0;
+    {
+        std::vector<uint16_t> data(16 * 6 * 8 * 8);
+        for (int i = 0; i < (int) data.size(); ++i) {
+            data[i] = (FONT[i / 8] & (1 << (7 - i % 8))) ? 0xffff : 0;
+        }
+        m_font_tex = SDL_CreateTexture(m_renderer, SDL_PIXELFORMAT_ARGB4444,
+                                       SDL_TEXTUREACCESS_STATIC, 16 * 8, 6 * 8);
+        SDL_UpdateTexture(m_font_tex, nullptr, data.data(), 2 * 16 * 8);
+        SDL_SetTextureBlendMode(m_font_tex, SDL_BLENDMODE_BLEND);
     }
-    m_font_tex = SDL_CreateTexture(m_renderer, SDL_PIXELFORMAT_ARGB4444, SDL_TEXTUREACCESS_STATIC, 16 * 8, 6 * 8);
-    SDL_UpdateTexture(m_font_tex, nullptr, data.data(), 2 * 16 * 8);
-    SDL_SetTextureBlendMode(m_font_tex, SDL_BLENDMODE_BLEND);
-
 
     app.init();
 
