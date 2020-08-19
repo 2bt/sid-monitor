@@ -9,11 +9,12 @@
 enum {
     MIXRATE           = 44100,
     BUFFER_SIZE       = MIXRATE / 50,
-    SPEED             = 1,
-    FRAMERATE         = 50 * SPEED,
-    SAMPLES_PER_FRAME = MIXRATE / FRAMERATE,
     CHANNEL_COUT      = 3,
 };
+
+int framerate;
+int samples_per_frame;
+
 
 std::array<SidEngine*, 2> engines = {
     SidEngine::create_resid(),
@@ -59,9 +60,9 @@ void audio_callback(void* u, Uint8* stream, int bytes) {
     static int sample = 0;
     while (length > 0) {
         if (sample == 0) tick();
-        int l = std::min(SAMPLES_PER_FRAME - sample, length);
+        int l = std::min(samples_per_frame - sample, length);
         sample += l;
-        if (sample == SAMPLES_PER_FRAME) sample = 0;
+        if (sample == samples_per_frame) sample = 0;
         length -= l;
         if (playing) engines[engine_nr]->mix(buffer, l);
         else for (int i = 0; i < l; ++i) buffer[i] = 0;
@@ -179,6 +180,10 @@ struct App : fx::App {
 
         }
 
+        int active_chans = 0;
+        for (int c = 0; c < CHANNEL_COUT; c++) active_chans += chan_active[c];
+
+
         for (int n = start_frame; n < start_frame + frames_per_screen; ++n) {
             if (n >= (int) record.states.size()) break;
             auto const& state      = record.states[n];
@@ -213,6 +218,13 @@ struct App : fx::App {
                 if (wave != 0 && prev_wave == 0) {
                     fx::draw_rectangle(false, x - scale_x, y - scale_y, scale_x, scale_y * 3 - 1);
                 }
+
+                // pulse width
+                if (active_chans == 1) {
+                    int pw = ((state.reg[c * 7 + 2] >> 4) & 0xf) | ((state.reg[c * 7 + 3] & 0xf) << 4);
+                    fx::set_color(c == 0 ? 50 : 0, c == 1 ? 50 : 0, c == 2 ? 50 : 0);
+                    fx::draw_rectangle(true, x, fx::screen_height() - pw, scale_x, pw);
+                }
             }
 
             // filter
@@ -222,11 +234,6 @@ struct App : fx::App {
                 fx::draw_rectangle(true, x, fx::screen_height() - freq, scale_x, freq);
             }
 
-//            int c = 2;
-//            int pw = state.reg[c * 7 + 2] | ((state.reg[c * 7 + 3] & 0xf) << 8);
-//            pw = pw * 100 / 0xfff;
-//            fx::set_color(50, 0, 0);
-//            fx::draw_rectangle(true, x, fx::screen_height() - pw, scale_x, pw);
          }
 
 
@@ -263,8 +270,8 @@ struct App : fx::App {
                 note);
 
             int control = state.reg[c * 7 + 4];
-            int pw = state.reg[c * 7 + 2] | ((state.reg[c * 7 + 3] & 0xf) << 8);
-            fx::printf(27 * 16 + 8, y, "%c%c%c%c %c%c%c%c%3d%%",
+            int pw = ((state.reg[c * 7 + 2] >> 4) & 0xf) | ((state.reg[c * 7 + 3] & 0xf) << 4);
+            fx::printf(27 * 16 + 8, y, "%c%c%c%c %c%c%c%c %02X",
                     ".G"[!!(control & 0x01)],
                     ".S"[!!(control & 0x02)],
                     ".R"[!!(control & 0x04)],
@@ -273,20 +280,20 @@ struct App : fx::App {
                     ".S"[!!(control & 0x20)],
                     ".P"[!!(control & 0x40)],
                     ".N"[!!(control & 0x80)],
-                    pw * 100 / 0xfff);
+                    pw);
         }
 
         fx::printf(8, 8, "%s - %d/%d", record.song_name.c_str(), record.song_nr, record.song_count);
         fx::printf(8, 8 + 24, "%s", record.song_author.c_str());
         fx::printf(8, 8 + 48, "%s", record.song_released.c_str());
 
-        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 0, "  time:  %02d:%02d", frame / FRAMERATE / 60, frame / FRAMERATE % 60);
-        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 1, "   pos: %6d", f);
-        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 2, "   bar: %6d", bar);
-        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 3, "filter:    %s", filter_active ? " on" : "off");
-        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 4, " model:   %s",
-                   chip_model == SidEngine::MOS6581 ? "6581" : "8580");
-        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 5, "engine:%7s", engines[engine_nr]->name());
+        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 0, " speed:     %dX", record.speed);
+        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 1, "  time:  %02d:%02d", frame / framerate / 60, frame / framerate % 60);
+        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 2, "   pos: %6d", f);
+        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 3, "   bar: %6d", bar);
+        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 4, "filter:    %s", filter_active ? " on" : "off");
+        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 5, " model:   %s", chip_model == SidEngine::MOS6581 ? "6581" : "8580");
+        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 6, "engine:%7s", engines[engine_nr]->name());
 
         const Uint8* ks = SDL_GetKeyboardState(nullptr);
         vert_pos += ks[SDL_SCANCODE_DOWN] - ks[SDL_SCANCODE_UP];
@@ -302,6 +309,9 @@ int main(int argc, char** argv) {
     }
 
     if (!record.load(argv[1], argc == 3 ? atoi(argv[2]) : -1)) return 1;
+
+    framerate         = 50 * record.speed;
+    samples_per_frame = MIXRATE / framerate;
 
     App app;
     return fx::run(app);

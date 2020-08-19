@@ -51,27 +51,28 @@ uint32_t swap(uint32_t v) { return  __builtin_bswap32(v); }
 bool Record::load(const char* filename, int nr) {
     states.clear();
 
-	// log
-	const char* dot = strrchr(filename, '.');
-	if (dot && strcmp(dot, ".txt") == 0) {
-		FILE* f = fopen(filename, "r");
-		if (!f) return false;
+    // log
+    const char* dot = strrchr(filename, '.');
+    if (dot && strcmp(dot, ".txt") == 0) {
+        FILE* f = fopen(filename, "r");
+        if (!f) return false;
         State s;
-		int dt, addr, val;
-		while (fscanf(f, "%d [%d] = %x ", &dt, &addr, &val) == 3) {
-			int idle = 0;
-			while (idle++ < 10 && dt > 17000) {
-				dt -= 17000;
+        int dt, addr, val;
+        while (fscanf(f, "%d [%d] = %x ", &dt, &addr, &val) == 3) {
+            int idle = 0;
+            while (idle++ < 10 && dt > 17000) {
+                dt -= 17000;
                 states.emplace_back(s);
                 s.is_set = {};
-			}
-			s.reg[addr] = val;
+            }
+            s.reg[addr] = val;
             s.is_set[addr] = true;
-		}
-		fclose(f);
-		song_name = filename;
-		return true;
-	}
+        }
+        fclose(f);
+        song_name = filename;
+        speed = 1;
+        return true;
+    }
 
 
     std::ifstream ifs(filename, std::ios::binary | std::ios::ate);
@@ -124,7 +125,7 @@ bool Record::load(const char* filename, int nr) {
     song_author   = h->song_author;
     song_released = h->song_released;
 
-    song_nr    = nr > 0 ? nr : h->start_song;
+    song_nr    = (nr > 0 ? nr : h->start_song) - 1;
     song_count = h->song_count;
 
     MyCPU cpu;
@@ -135,8 +136,16 @@ bool Record::load(const char* filename, int nr) {
     }
 
     // init song
-    cpu.jsr(h->init_addr, song_nr - 1);
-//    printf("%02X%02X\n", cpu.ram[0xdc05], cpu.ram[0xdc04]);
+    cpu.jsr(h->init_addr, song_nr);
+
+    // check timer
+    if (song_nr < 32 && ((h->speed >> song_nr) & 1)) {
+        int timer = (cpu.ram[0xdc05] << 8) | cpu.ram[0xdc04];
+        speed = (19656 + timer / 2) / timer;
+    }
+    else {
+        speed = 1;
+    }
 
     // play song
     for (int m = 0; m < 60 * 50 * 10; ++m) {
