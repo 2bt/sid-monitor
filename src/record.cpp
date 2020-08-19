@@ -69,8 +69,10 @@ bool Record::load(const char* filename, int nr) {
             s.is_set[addr] = true;
         }
         fclose(f);
-        song_name = filename;
-        speed = 1;
+        song_name  = filename;
+        speed      = 1;
+        song_nr    = 1;
+        song_count = 1;
         return true;
     }
 
@@ -125,7 +127,7 @@ bool Record::load(const char* filename, int nr) {
     song_author   = h->song_author;
     song_released = h->song_released;
 
-    song_nr    = (nr > 0 ? nr : h->start_song) - 1;
+    song_nr    = nr > 0 ? nr : h->start_song;
     song_count = h->song_count;
 
     MyCPU cpu;
@@ -136,10 +138,10 @@ bool Record::load(const char* filename, int nr) {
     }
 
     // init song
-    cpu.jsr(h->init_addr, song_nr);
+    cpu.jsr(h->init_addr, song_nr - 1);
 
     // check timer
-    if (song_nr < 32 && ((h->speed >> song_nr) & 1)) {
+    if (song_nr < 32 && ((h->speed >> (song_nr - 1)) & 1)) {
         int timer = (cpu.ram[0xdc05] << 8) | cpu.ram[0xdc04];
         speed = (19656 + timer / 2) / timer;
     }
