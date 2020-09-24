@@ -261,7 +261,7 @@ struct App : fx::App {
 
             int   freq      = state.reg[c * 7 + 0] | (state.reg[c * 7 + 1] << 8);
             float real_freq = freq * 17734472.0f * (1.0f / (18 << 24));
-            int note        = int(57.5f + std::log2(real_freq / 440) * 12);
+            int   note      = int(57.5f + std::log2(real_freq / 440) * 12);
 
             fx::printf(23 * 16 + 8, y, note > 0 ? "%c%c%d" : "...",
                 "CCDDEFFGGAAB"[note % 12],
@@ -272,16 +272,21 @@ struct App : fx::App {
             int control = state.reg[c * 7 + 4];
             int pw = ((state.reg[c * 7 + 2] >> 4) & 0xf) | ((state.reg[c * 7 + 3] & 0xf) << 4);
             fx::printf(27 * 16 + 8, y, "%c%c%c%c %c%c%c%c %02X",
-                    ".G"[!!(control & 0x01)],
-                    ".S"[!!(control & 0x02)],
-                    ".R"[!!(control & 0x04)],
-                    ".T"[!!(control & 0x08)],
-                    ".T"[!!(control & 0x10)],
-                    ".S"[!!(control & 0x20)],
-                    ".P"[!!(control & 0x40)],
-                    ".N"[!!(control & 0x80)],
+                    "N."[!(control & 0x80)],
+                    "P."[!(control & 0x40)],
+                    "S."[!(control & 0x20)],
+                    "T."[!(control & 0x10)],
+                    "T."[!(control & 0x08)],
+                    "R."[!(control & 0x04)],
+                    "S."[!(control & 0x02)],
+                    "G."[!(control & 0x01)],
                     pw);
         }
+        int filter = state.reg[24];
+        fx::printf(27 * 16 + 8, fx::screen_height() - 24, "%c%c%c",
+                "H."[!(filter & 0x40)],
+                "B."[!(filter & 0x20)],
+                "L."[!(filter & 0x10)]);
 
         fx::printf(8, 8, "%s - %d/%d", record.song_name.c_str(), record.song_nr, record.song_count);
         fx::printf(8, 8 + 24, "%s", record.song_author.c_str());

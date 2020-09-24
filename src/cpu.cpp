@@ -15,48 +15,48 @@ enum {
     CLD, CLI, CLV, CMP, CPX, CPY, DEC, DEX, DEY, EOR, INC, INX, INY, JMP,
     JSR, LDA, LDX, LDY, LSR, NOP, ORA, PHA, PHP, PLA, PLP, ROL, ROR, RTI,
     RTS, SBC, SEC, SED, SEI, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
-    SLO, AXS, LAX,
+    SLO, AXS, LAX, SAX,
     XXX,
 };
 
 enum { IMP, IMM, ABS, ABSX, ABSY, ZP, ZPX, ZPY, IND, INDX, INDY, ACC, REL};
 
 const int OPCODE_TABLE[256] = {
-    BRK,  ORA,  XXX,  XXX,  XXX,  ORA,  ASL,  XXX,  PHP,  ORA,  ASL,  XXX,  XXX,  ORA,  ASL,  XXX,
-    BPL,  ORA,  XXX,  XXX,  XXX,  ORA,  ASL,  XXX,  CLC,  ORA,  XXX,  XXX,  XXX,  ORA,  ASL,  XXX,
+    BRK,  ORA,  XXX,  XXX,  XXX,  ORA,  ASL,  XXX,  PHP,  ORA,  ASL,  XXX,  XXX,  ORA,  ASL,  SLO,
+    BPL,  ORA,  XXX,  XXX,  XXX,  ORA,  ASL,  XXX,  CLC,  ORA,  XXX,  XXX,  XXX,  ORA,  ASL,  SLO,
     JSR,  AND,  SLO,  XXX,  BIT,  AND,  ROL,  XXX,  PLP,  AND,  ROL,  XXX,  BIT,  AND,  ROL,  XXX,
     BMI,  AND,  XXX,  XXX,  XXX,  AND,  ROL,  XXX,  SEC,  AND,  XXX,  XXX,  NOP,  AND,  ROL,  XXX,
     RTI,  EOR,  XXX,  XXX,  XXX,  EOR,  LSR,  XXX,  PHA,  EOR,  LSR,  XXX,  JMP,  EOR,  LSR,  XXX,
     BVC,  EOR,  XXX,  XXX,  XXX,  EOR,  LSR,  XXX,  CLI,  EOR,  XXX,  XXX,  XXX,  EOR,  LSR,  XXX,
     RTS,  ADC,  XXX,  XXX,  XXX,  ADC,  ROR,  XXX,  PLA,  ADC,  ROR,  XXX,  JMP,  ADC,  ROR,  XXX,
     BVS,  ADC,  XXX,  XXX,  XXX,  ADC,  ROR,  XXX,  SEI,  ADC,  XXX,  XXX,  XXX,  ADC,  ROR,  XXX,
-    XXX,  STA,  XXX,  XXX,  STY,  STA,  STX,  XXX,  DEY,  XXX,  TXA,  XXX,  STY,  STA,  STX,  XXX,
+    XXX,  STA,  XXX,  XXX,  STY,  STA,  STX,  XXX,  DEY,  XXX,  TXA,  XXX,  STY,  STA,  STX,  SAX,
     BCC,  STA,  XXX,  XXX,  STY,  STA,  STX,  XXX,  TYA,  STA,  TXS,  XXX,  XXX,  STA,  XXX,  XXX,
     LDY,  LDA,  LDX,  XXX,  LDY,  LDA,  LDX,  LAX,  TAY,  LDA,  TAX,  XXX,  LDY,  LDA,  LDX,  LAX,
     BCS,  LDA,  XXX,  LAX,  LDY,  LDA,  LDX,  XXX,  CLV,  LDA,  TSX,  XXX,  LDY,  LDA,  LDX,  XXX,
     CPY,  CMP,  XXX,  XXX,  CPY,  CMP,  DEC,  XXX,  INY,  CMP,  DEX,  AXS,  CPY,  CMP,  DEC,  XXX,
     BNE,  CMP,  XXX,  XXX,  XXX,  CMP,  DEC,  XXX,  CLD,  CMP,  XXX,  XXX,  XXX,  CMP,  DEC,  XXX,
     CPX,  SBC,  XXX,  XXX,  CPX,  SBC,  INC,  XXX,  INX,  SBC,  NOP,  XXX,  CPX,  SBC,  INC,  XXX,
-    BEQ,  SBC,  XXX,  XXX,  XXX,  SBC,  INC,  XXX,  SED,  SBC,  XXX,  XXX,  XXX,  SBC,  INC,  XXX
+    BEQ,  SBC,  XXX,  XXX,  XXX,  SBC,  INC,  XXX,  SED,  SBC,  XXX,  XXX,  XXX,  SBC,  INC,  XXX,
 };
 
 const int MODE_TABLE[256] = {
-    IMP,  INDX,  XXX,   XXX,   ZP,   ZP,   ZP,   XXX,  IMP,  IMM,   ACC,  XXX,   ABS,   ABS,   ABS,   XXX,
-    REL,  INDY,  INDY,  XXX,   XXX,  ZPX,  ZPX,  XXX,  IMP,  ABSY,  XXX,  XXX,   XXX,   ABSX,  ABSX,  XXX,
-    ABS,  INDX,  XXX,   XXX,   ZP,   ZP,   ZP,   XXX,  IMP,  IMM,   ACC,  XXX,   ABS,   ABS,   ABS,   XXX,
-    REL,  INDY,  XXX,   XXX,   XXX,  ZPX,  ZPX,  XXX,  IMP,  ABSY,  XXX,  ABSY,  ABSX,  ABSX,  ABSX,  XXX,
-    IMP,  INDX,  XXX,   XXX,   ZP,   ZP,   ZP,   XXX,  IMP,  IMM,   ACC,  XXX,   ABS,   ABS,   ABS,   XXX,
-    REL,  INDY,  XXX,   XXX,   XXX,  ZPX,  ZPX,  XXX,  IMP,  ABSY,  XXX,  XXX,   XXX,   ABSX,  ABSX,  XXX,
-    IMP,  INDX,  XXX,   XXX,   ZP,   ZP,   ZP,   XXX,  IMP,  IMM,   ACC,  XXX,   IND,   ABS,   ABS,   XXX,
-    REL,  INDY,  XXX,   XXX,   XXX,  ZPX,  ZPX,  XXX,  IMP,  ABSY,  XXX,  XXX,   XXX,   ABSX,  ABSX,  XXX,
-    IMM,  INDX,  XXX,   XXX,   ZP,   ZP,   ZP,   XXX,  IMP,  IMM,   ACC,  XXX,   ABS,   ABS,   ABS,   XXX,
-    REL,  INDY,  XXX,   XXX,   ZPX,  ZPX,  ZPY,  XXX,  IMP,  ABSY,  ACC,  XXX,   XXX,   ABSX,  ABSX,  XXX,
+    IMP,  INDX,  XXX,   XXX,   ZP,   ZP,   ZP,   XXX,  IMP,  IMM,   ACC,  XXX,   ABS,   ABS,   ABS,   ABS,
+    REL,  INDY,  INDY,  XXX,   XXX,  ZPX,  ZPX,  XXX,  IMP,  ABSY,  XXX,  XXX,   XXX,   ABSX,  ABSX,  ABSX,
+    ABS,  INDX,  XXX,   XXX,   ZP,   ZP,   ZP,   XXX,  IMP,  IMM,   ACC,  XXX,   ABS,   ABS,   ABS,   ABS,
+    REL,  INDY,  XXX,   XXX,   XXX,  ZPX,  ZPX,  XXX,  IMP,  ABSY,  XXX,  ABSY,  ABSX,  ABSX,  ABSX,  ABSX,
+    IMP,  INDX,  XXX,   XXX,   ZP,   ZP,   ZP,   XXX,  IMP,  IMM,   ACC,  XXX,   ABS,   ABS,   ABS,   ABS,
+    REL,  INDY,  XXX,   XXX,   XXX,  ZPX,  ZPX,  XXX,  IMP,  ABSY,  XXX,  XXX,   XXX,   ABSX,  ABSX,  ABSX,
+    IMP,  INDX,  XXX,   XXX,   ZP,   ZP,   ZP,   XXX,  IMP,  IMM,   ACC,  XXX,   IND,   ABS,   ABS,   ABS,
+    REL,  INDY,  XXX,   XXX,   XXX,  ZPX,  ZPX,  XXX,  IMP,  ABSY,  XXX,  XXX,   XXX,   ABSX,  ABSX,  ABSX,
+    IMM,  INDX,  XXX,   XXX,   ZP,   ZP,   ZP,   XXX,  IMP,  IMM,   ACC,  XXX,   ABS,   ABS,   ABS,   ABS,
+    REL,  INDY,  XXX,   XXX,   ZPX,  ZPX,  ZPY,  XXX,  IMP,  ABSY,  ACC,  XXX,   XXX,   ABSX,  ABSX,  ABSY,
     IMM,  INDX,  IMM,   XXX,   ZP,   ZP,   ZP,   ZP,   IMP,  IMM,   ACC,  XXX,   ABS,   ABS,   ABS,   ABS,
-    REL,  INDY,  XXX,   INDY,  ZPX,  ZPX,  ZPY,  XXX,  IMP,  ABSY,  ACC,  XXX,   ABSX,  ABSX,  ABSY,  XXX,
-    IMM,  INDX,  XXX,   XXX,   ZP,   ZP,   ZP,   XXX,  IMP,  IMM,   ACC,  IMM,   ABS,   ABS,   ABS,   XXX,
-    REL,  INDY,  XXX,   XXX,   ZPX,  ZPX,  ZPX,  XXX,  IMP,  ABSY,  ACC,  XXX,   XXX,   ABSX,  ABSX,  XXX,
-    IMM,  INDX,  XXX,   XXX,   ZP,   ZP,   ZP,   XXX,  IMP,  IMM,   ACC,  XXX,   ABS,   ABS,   ABS,   XXX,
-    REL,  INDY,  XXX,   XXX,   ZPX,  ZPX,  ZPX,  XXX,  IMP,  ABSY,  ACC,  XXX,   XXX,   ABSX,  ABSX,  XXX
+    REL,  INDY,  XXX,   INDY,  ZPX,  ZPX,  ZPY,  XXX,  IMP,  ABSY,  ACC,  XXX,   ABSX,  ABSX,  ABSY,  ABSY,
+    IMM,  INDX,  XXX,   XXX,   ZP,   ZP,   ZP,   XXX,  IMP,  IMM,   ACC,  IMM,   ABS,   ABS,   ABS,   ABS,
+    REL,  INDY,  XXX,   XXX,   ZPX,  ZPX,  ZPX,  XXX,  IMP,  ABSY,  ACC,  XXX,   XXX,   ABSX,  ABSX,  ABSX,
+    IMM,  INDX,  XXX,   XXX,   ZP,   ZP,   ZP,   XXX,  IMP,  IMM,   ACC,  XXX,   ABS,   ABS,   ABS,   ABS,
+    REL,  INDY,  XXX,   XXX,   ZPX,  ZPX,  ZPX,  XXX,  IMP,  ABSY,  ACC,  XXX,   XXX,   ABSX,  ABSX,  ABSX,
 };
 
 
@@ -496,6 +496,9 @@ void CPU::parse(uint8_t opc) {
         a = x = getaddr(addr);
         setflags(FLAG_Z, !a);
         setflags(FLAG_N, a & 0x80);
+        break;
+    case SAX:
+        putaddr(addr, a & x);
         break;
 
     default:

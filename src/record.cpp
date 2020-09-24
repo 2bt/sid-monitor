@@ -44,7 +44,7 @@ struct Header {
 } __attribute__((packed));
 
 
-uint16_t swap(uint16_t v) { return ((v & 0xff) << 8) | ((v >> 8) & 0xff); }
+uint32_t swap(uint16_t v) { return  __builtin_bswap16(v); }
 uint32_t swap(uint32_t v) { return  __builtin_bswap32(v); }
 
 
@@ -150,7 +150,7 @@ bool Record::load(const char* filename, int nr) {
     }
 
     // play song
-    for (int m = 0; m < 60 * 50 * 10; ++m) {
+    for (int m = 0; m < 60 * 50 * 10 * speed; ++m) {
         State s;
         cpu.jsr(h->play_addr, 0, [&s](uint16_t addr, uint8_t value) {
             if (addr >= 0xd400 && addr < 0xd400 + s.is_set.size()) {
