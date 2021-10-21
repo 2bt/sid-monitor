@@ -19,7 +19,7 @@ struct Record {
     std::string        song_released;
     int                song_count;
     int                song_nr;
-    int                speed;
+    float              speed;
 
     bool load(const char* filename, int song_nr = 0);
 };

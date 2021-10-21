@@ -1,5 +1,7 @@
 #include <cstdio>
 #include <chrono>
+#include <cmath>
+#define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
 #include "record.hpp"
 #include "fx.hpp"
@@ -8,7 +10,7 @@
 
 enum {
     MIXRATE           = 44100,
-    BUFFER_SIZE       = MIXRATE / 50,
+    BUFFER_SIZE       = 1024,
     CHANNEL_COUT      = 3,
 };
 
@@ -292,7 +294,7 @@ struct App : fx::App {
         fx::printf(8, 8 + 24, "%s", record.song_author.c_str());
         fx::printf(8, 8 + 48, "%s", record.song_released.c_str());
 
-        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 0, " speed:     %dX", record.speed);
+        fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 0, " speed:  %4.gX", record.speed);
         fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 1, "  time:  %02d:%02d", frame / framerate / 60, frame / framerate % 60);
         fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 2, "   pos: %6d", f);
         fx::printf(fx::screen_width() - 8 - 16 * 14, 8 + 24 * 3, "   bar: %6d", bar);

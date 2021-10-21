@@ -1,5 +1,6 @@
 #include <fstream>
 #include <cstring>
+#include <cmath>
 #include "record.hpp"
 #include "cpu.hpp"
 
@@ -143,7 +144,9 @@ bool Record::load(const char* filename, int nr) {
     // check timer
     if (song_nr < 32 && ((h->speed >> (song_nr - 1)) & 1)) {
         int timer = (cpu.ram[0xdc05] << 8) | cpu.ram[0xdc04];
-        speed = (19656 + timer / 2) / timer;
+//        speed = (19656 + timer / 2) / timer;
+//        speed = 19656.0f / timer;
+        speed = round(19656 * 2.0f / timer) / 2;
     }
     else {
         speed = 1;

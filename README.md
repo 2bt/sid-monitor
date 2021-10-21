@@ -1,4 +1,4 @@
-SID monitor
+SID Monitor
 ===========
 
 A SID player with piano-roll-like visualization.

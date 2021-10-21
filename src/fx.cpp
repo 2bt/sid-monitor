@@ -1,6 +1,8 @@
-#include <SDL2/SDL.h>
 #include <vector>
+#include <cstdio>
+#include <SDL2/SDL.h>
 #include "fx.hpp"
+
 
 namespace fx {
 namespace {

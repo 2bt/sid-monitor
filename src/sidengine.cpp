@@ -42,16 +42,6 @@ public:
 
 private:
 
-    constexpr static std::array<int, 16> attack_speeds = {
-        168867, 47495, 24124, 15998, 10200, 6908, 5692, 4855,
-        3877, 1555, 777, 486, 389, 129, 77, 48,
-    };
-
-    constexpr static std::array<int, 16> release_speeds = {
-        42660, 15468, 7857, 5210, 3322, 2250, 1853, 1581,
-        1262, 506, 253, 158, 126, 42, 25, 15,
-    };
-
     enum {
         CHANNEL_COUNT = 3
     };
@@ -108,13 +98,23 @@ void TinySidEngine::update_registers(uint8_t const* regs) {
         Channel& chan = m_channels[i];
         uint8_t const* r = regs + (i * 7);
 
+        static const std::array<int, 16> ATTACK_SPEEDS = {
+            168867, 47495, 24124, 15998, 10200, 6908, 5692, 4855,
+            3877, 1555, 777, 486, 389, 129, 77, 48,
+        };
+
+        static const std::array<int, 16> RELEASE_SPEEDS = {
+            42660, 15468, 7857, 5210, 3322, 2250, 1853, 1581,
+            1262, 506, 253, 158, 126, 42, 25, 15,
+        };
+
         chan.freq            = (r[0] | (r[1] << 8)) * (15872000 / MIXRATE);
         chan.next_pulsewidth = (r[2] | ((r[3] & 15) << 8)) << 16;
         chan.flags           = r[4];
-        chan.adsr[0]         = attack_speeds[r[5] >> 4];
-        chan.adsr[1]         = release_speeds[r[5] & 15];
+        chan.adsr[0]         = ATTACK_SPEEDS[r[5] >> 4];
+        chan.adsr[1]         = RELEASE_SPEEDS[r[5] & 15];
         chan.adsr[2]         = (r[6] >> 4) * 0x111111;
-        chan.adsr[3]         = release_speeds[r[6] & 15];
+        chan.adsr[3]         = RELEASE_SPEEDS[r[6] & 15];
         chan.filter          = (regs[23] >> i) & 1;
     }
 
