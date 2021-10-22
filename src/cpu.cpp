@@ -1,14 +1,16 @@
 // this code is based on kb's 6502 code in tinysid, i think.
 #include "cpu.hpp"
+#include <cstdio>
 
-#define FLAG_N 128
-#define FLAG_V 64
-#define FLAG_B 16
-#define FLAG_D 8
-#define FLAG_I 4
-#define FLAG_Z 2
-#define FLAG_C 1
-
+enum {
+    FLAG_C = 1,
+    FLAG_Z = 2,
+    FLAG_I = 4,
+    FLAG_D = 8,
+    FLAG_B = 16,
+    FLAG_V = 64,
+    FLAG_N = 128,
+};
 
 enum {
     ADC, AND, ASL, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BRK, BVC, BVS, CLC,
@@ -519,5 +521,3 @@ void CPU::jsr(uint16_t npc, uint8_t na) {
     push(0);
     while (pc) parse(getmem(pc++));
 }
-
-
