@@ -32,7 +32,7 @@ const int OPCODE_TABLE[256] = {
     BVC,  EOR,  XXX,  XXX,  XXX,  EOR,  LSR,  XXX,  CLI,  EOR,  XXX,  XXX,  XXX,  EOR,  LSR,  XXX,
     RTS,  ADC,  XXX,  XXX,  XXX,  ADC,  ROR,  XXX,  PLA,  ADC,  ROR,  XXX,  JMP,  ADC,  ROR,  XXX,
     BVS,  ADC,  XXX,  XXX,  XXX,  ADC,  ROR,  XXX,  SEI,  ADC,  XXX,  XXX,  XXX,  ADC,  ROR,  XXX,
-    XXX,  STA,  XXX,  XXX,  STY,  STA,  STX,  XXX,  DEY,  XXX,  TXA,  XXX,  STY,  STA,  STX,  SAX,
+    NOP,  STA,  XXX,  XXX,  STY,  STA,  STX,  XXX,  DEY,  XXX,  TXA,  XXX,  STY,  STA,  STX,  SAX,
     BCC,  STA,  XXX,  XXX,  STY,  STA,  STX,  XXX,  TYA,  STA,  TXS,  XXX,  XXX,  STA,  XXX,  XXX,
     LDY,  LDA,  LDX,  XXX,  LDY,  LDA,  LDX,  LAX,  TAY,  LDA,  TAX,  XXX,  LDY,  LDA,  LDX,  LAX,
     BCS,  LDA,  XXX,  LAX,  LDY,  LDA,  LDX,  XXX,  CLV,  LDA,  TSX,  XXX,  LDY,  LDA,  LDX,  XXX,
@@ -395,7 +395,9 @@ void CPU::parse(uint8_t opc) {
         setflags(FLAG_N, wval & 0x80);
         setflags(FLAG_C, bval & 1);
         break;
-    case NOP: break;
+    case NOP:
+        bval = getaddr(addr);
+        break;
     case ORA:
         bval = getaddr(addr);
         a |= bval;
