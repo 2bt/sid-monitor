@@ -15,11 +15,11 @@ private:
     uint8_t getaddr(int mode);
     void    setaddr(int mode, uint8_t val);
     void    putaddr(int mode, uint8_t val);
-    void    setflags(int flag, int cond);
+    void    setflags(int flag, bool cond);
     void    push(uint8_t val);
     uint8_t pop();
-    void    branch(int flag);
-    void    parse(uint8_t opc);
+    void    branch(bool cond);
+    void    parse();
 
     int      cycles;
     uint16_t pc;
