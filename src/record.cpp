@@ -55,38 +55,43 @@ bool Record::load(const char* filename, int nr) {
     // log
     const char* dot = strrchr(filename, '.');
     if (dot && strcmp(dot, ".txt") == 0) {
-        FILE* f = fopen(filename, "r");
-        if (!f) return false;
-        State s;
-        int dt, addr, val;
-        while (fscanf(f, "%d [%d] = %x ", &dt, &addr, &val) == 3) {
-            int idle = 0;
-            while (idle++ < 10 && dt > 17000) {
-                dt -= 17000;
-                states.emplace_back(s);
-                s.is_set = {};
-            }
-            s.reg[addr] = val;
-            s.is_set[addr] = true;
-        }
-        fclose(f);
         song_name  = filename;
         speed      = 1;
         song_nr    = 1;
         song_count = 1;
+
+        std::ifstream file(filename);
+        if (!file.is_open()) {
+            printf("error: could not open file\n");
+            return false;
+        }
+        std::string line;
+        while (std::getline(file, line)) {
+            State s;
+            char const* p = line.c_str();
+            for (size_t i = 0; i < s.reg.size(); ++i) {
+                s.reg[i]    = strtoul(p, (char**) &p, 16);
+                s.is_set[i] = true;
+            }
+            states.emplace_back(s);
+        }
+//        for (State const& s : states) {
+//            for (uint8_t x : s.reg) printf(" %02X", x);
+//            printf("\n");
+//        }
         return true;
     }
 
 
-    std::ifstream ifs(filename, std::ios::binary | std::ios::ate);
-    if (!ifs.is_open()) {
+    std::ifstream file(filename, std::ios::binary | std::ios::ate);
+    if (!file.is_open()) {
         printf("error: could not open file\n");
         return false;
     }
-    auto pos = ifs.tellg();
+    auto pos = file.tellg();
     std::vector<uint8_t> data(pos);
-    ifs.seekg(0, std::ios::beg);
-    ifs.read((char*) data.data(), pos);
+    file.seekg(0, std::ios::beg);
+    file.read((char*) data.data(), pos);
 
 
 
