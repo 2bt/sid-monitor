@@ -14,8 +14,6 @@ enum {
     CHANNEL_COUT      = 3,
 };
 
-int framerate;
-int samples_per_frame;
 
 
 std::array<SidEngine*, 2> engines = {
@@ -23,12 +21,16 @@ std::array<SidEngine*, 2> engines = {
     SidEngine::create_tinysid(),
 };
 
-Record     record;
-int        frame;
-bool       playing       = false;
-bool       chan_active[] = { 1, 1, 1 };
-int        engine_nr     = 0;
-size_t     render_time   = 0;
+char const* filename;
+int         framerate;
+int         samples_per_frame;
+Record      record;
+int         frame;
+bool        playing       = false;
+bool        chan_active[] = { 1, 1, 1 };
+int         engine_nr     = 0;
+size_t      render_time   = 0;
+
 
 void tick() {
     const Uint8* ks = SDL_GetKeyboardState(nullptr);
@@ -82,7 +84,7 @@ void audio_callback(void* u, Uint8* stream, int bytes) {
         render_time = nano_acc / (count / float(MIXRATE));
         nano_acc = 0;
         count = 0;
-//        printf("%10lu\n", render_time);
+        //printf("%10lu\n", render_time);
     }
 }
 
@@ -98,11 +100,20 @@ struct App : fx::App {
     int  vert_pos      = 16;
     SidEngine::ChipModel chip_model = SidEngine::MOS8580;
 
+    void reload_song(int nr) {
+        SDL_PauseAudio(1);
+        frame   = 0;
+        playing = false;
+        record.load(filename, nr);
+        SDL_PauseAudio(0);
+    }
+
     void init() override {
-
         engines[engine_nr]->set_chip_model(chip_model);
-
-        SDL_AudioSpec spec = { MIXRATE, AUDIO_S16, 1, 0, BUFFER_SIZE, 0, 0, &audio_callback };
+        SDL_AudioSpec spec = {
+            MIXRATE, AUDIO_S16, 1, 0,
+            BUFFER_SIZE, 0, 0, &audio_callback
+        };
         SDL_OpenAudio(&spec, nullptr);
         SDL_PauseAudio(0);
     }
@@ -142,6 +153,13 @@ struct App : fx::App {
             engine_nr = (engine_nr + 1) % engines.size();
             engines[engine_nr]->set_chip_model(chip_model);
             engines[engine_nr]->enable_filter(filter_active);
+            break;
+
+        case SDL_SCANCODE_COMMA:
+            if (record.song_nr > 1) reload_song(record.song_nr - 1);
+            break;
+        case SDL_SCANCODE_PERIOD:
+            if (record.song_nr < record.song_count) reload_song(record.song_nr + 1);
             break;
 
         default: break;
@@ -309,13 +327,17 @@ struct App : fx::App {
 };
 
 
-int main(int argc, char** argv) {
-    if (argc != 2 && argc != 3) {
-        printf("usage: %s sid-file [song-number]\n", argv[0]);
-        return 0;
-    }
+void usage(char const* exe) {
+    printf("usage: %s sid-file [song-number]\n", exe);
+    exit(1);
+}
 
-    if (!record.load(argv[1], argc == 3 ? atoi(argv[2]) : -1)) return 1;
+int main(int argc, char** argv) {
+    int song_nr = -1;
+    if (argc == 3) song_nr = atoi(argv[2]);
+    else if (argc != 2) usage(argv[0]);
+    filename = argv[1];
+    if (!record.load(filename, song_nr)) usage(argv[0]);
 
     framerate         = 50 * record.speed;
     samples_per_frame = MIXRATE / framerate;

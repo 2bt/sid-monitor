@@ -71,4 +71,8 @@ Each channel is shown in a certain color:
         <td><code>W</code>/<code>S</code>/<code>A</code>/<code>D</code></td>
         <td>Change bar offset/width.</td>
     </tr>
+    <tr>
+        <td><code>&lt;</code>/<code>&gt;</code></td>
+        <td>Switch sub tune.</td>
+    </tr>
 </table>

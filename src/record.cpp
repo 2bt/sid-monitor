@@ -50,7 +50,7 @@ uint32_t swap(uint32_t v) { return  __builtin_bswap32(v); }
 
 
 bool Record::load(const char* filename, int nr) {
-    states.clear();
+    *this = {};
 
     // log
     const char* dot = strrchr(filename, '.');
