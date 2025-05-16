@@ -17,7 +17,7 @@ enum {
     CLD, CLI, CLV, CMP, CPX, CPY, DEC, DEX, DEY, EOR, INC, INX, INY, JMP,
     JSR, LDA, LDX, LDY, LSR, NOP, ORA, PHA, PHP, PLA, PLP, ROL, ROR, RTI,
     RTS, SBC, SEC, SED, SEI, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
-    SLO, AXS, LAX, SAX,
+    SLO, AXS, LAX, SAX, RLA, RRA,
     XXX,
 };
 
@@ -26,12 +26,12 @@ enum { IMP, IMM, ABS, ABSX, ABSY, ZP, ZPX, ZPY, IND, INDX, INDY, ACC, REL};
 const int OPCODE_TABLE[256] = {
     BRK,  ORA,  XXX,  SLO,  NOP,  ORA,  ASL,  SLO,  PHP,  ORA,  ASL,  XXX,  XXX,  ORA,  ASL,  SLO,
     BPL,  ORA,  XXX,  SLO,  NOP,  ORA,  ASL,  SLO,  CLC,  ORA,  XXX,  SLO,  XXX,  ORA,  ASL,  SLO,
-    JSR,  AND,  XXX,  XXX,  BIT,  AND,  ROL,  XXX,  PLP,  AND,  ROL,  XXX,  BIT,  AND,  ROL,  XXX,
-    BMI,  AND,  XXX,  XXX,  NOP,  AND,  ROL,  XXX,  SEC,  AND,  XXX,  XXX,  NOP,  AND,  ROL,  XXX,
+    JSR,  AND,  XXX,  RLA,  BIT,  AND,  ROL,  RLA,  PLP,  AND,  ROL,  XXX,  BIT,  AND,  ROL,  RLA,
+    BMI,  AND,  XXX,  RLA,  NOP,  AND,  ROL,  RLA,  SEC,  AND,  XXX,  RLA,  NOP,  AND,  ROL,  RLA,
     RTI,  EOR,  XXX,  XXX,  NOP,  EOR,  LSR,  XXX,  PHA,  EOR,  LSR,  XXX,  JMP,  EOR,  LSR,  XXX,
     BVC,  EOR,  XXX,  XXX,  NOP,  EOR,  LSR,  XXX,  CLI,  EOR,  XXX,  XXX,  XXX,  EOR,  LSR,  XXX,
-    RTS,  ADC,  XXX,  XXX,  NOP,  ADC,  ROR,  XXX,  PLA,  ADC,  ROR,  XXX,  JMP,  ADC,  ROR,  XXX,
-    BVS,  ADC,  XXX,  XXX,  NOP,  ADC,  ROR,  XXX,  SEI,  ADC,  XXX,  XXX,  XXX,  ADC,  ROR,  XXX,
+    RTS,  ADC,  XXX,  RRA,  NOP,  ADC,  ROR,  RRA,  PLA,  ADC,  ROR,  XXX,  JMP,  ADC,  ROR,  RRA,
+    BVS,  ADC,  XXX,  RRA,  NOP,  ADC,  ROR,  RRA,  SEI,  ADC,  XXX,  RRA,  XXX,  ADC,  ROR,  RRA,
     NOP,  STA,  NOP,  SAX,  STY,  STA,  STX,  SAX,  DEY,  XXX,  TXA,  XXX,  STY,  STA,  STX,  SAX,
     BCC,  STA,  XXX,  XXX,  STY,  STA,  STX,  SAX,  TYA,  STA,  TXS,  XXX,  XXX,  STA,  XXX,  XXX,
     LDY,  LDA,  LDX,  LAX,  LDY,  LDA,  LDX,  LAX,  TAY,  LDA,  TAX,  XXX,  LDY,  LDA,  LDX,  LAX,
@@ -505,6 +505,34 @@ void CPU::parse() {
     case SAX:
         putaddr(addr, a & x);
         break;
+
+    case RLA:
+        bval = getaddr(addr);
+        c    = !!(p & FLAG_C);
+        setflags(FLAG_C, bval & 0x80);
+        bval <<= 1;
+        bval |= c;
+        setaddr(addr, bval);
+        a &= bval;
+        setflags(FLAG_Z, !a);
+        setflags(FLAG_N, a & 0x80);
+        break;
+
+    case RRA:
+        bval = getaddr(addr);
+        c    = !!(p & FLAG_C);
+        setflags(FLAG_C, bval & 1);
+        bval >>= 1;
+        bval |= 128 * c;
+        setaddr(addr, bval);
+        wval = (uint16_t)a + bval + ((p & FLAG_C) ? 1 : 0);
+        setflags(FLAG_C, wval & 0x100);
+        a = (uint8_t)wval;
+        setflags(FLAG_Z, !a);
+        setflags(FLAG_N, a & 0x80);
+        setflags(FLAG_V, (!!(p & FLAG_C)) ^ (!!(p & FLAG_N)));
+        break;
+
     case XXX:
     default:
         printf("cpu: unknown opcode: %02x\n", opc);
