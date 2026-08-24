@@ -17,29 +17,29 @@ enum {
     CLD, CLI, CLV, CMP, CPX, CPY, DEC, DEX, DEY, EOR, INC, INX, INY, JMP,
     JSR, LDA, LDX, LDY, LSR, NOP, ORA, PHA, PHP, PLA, PLP, ROL, ROR, RTI,
     RTS, SBC, SEC, SED, SEI, STA, STX, STY, TAX, TAY, TSX, TXA, TXS, TYA,
-    SLO, AXS, LAX, SAX, RLA, RRA,
+    SLO, AXS, LAX, SAX, RLA, RRA, ANC,
     XXX,
 };
 
 enum { IMP, IMM, ABS, ABSX, ABSY, ZP, ZPX, ZPY, IND, INDX, INDY, ACC, REL};
 
 const int OPCODE_TABLE[256] = {
-    BRK,  ORA,  XXX,  SLO,  NOP,  ORA,  ASL,  SLO,  PHP,  ORA,  ASL,  XXX,  XXX,  ORA,  ASL,  SLO,
-    BPL,  ORA,  XXX,  SLO,  NOP,  ORA,  ASL,  SLO,  CLC,  ORA,  XXX,  SLO,  XXX,  ORA,  ASL,  SLO,
+    BRK,  ORA,  XXX,  SLO,  NOP,  ORA,  ASL,  SLO,  PHP,  ORA,  ASL,  ANC,  NOP,  ORA,  ASL,  SLO,
+    BPL,  ORA,  XXX,  SLO,  NOP,  ORA,  ASL,  SLO,  CLC,  ORA,  XXX,  SLO,  NOP,  ORA,  ASL,  SLO,
     JSR,  AND,  XXX,  RLA,  BIT,  AND,  ROL,  RLA,  PLP,  AND,  ROL,  XXX,  BIT,  AND,  ROL,  RLA,
     BMI,  AND,  XXX,  RLA,  NOP,  AND,  ROL,  RLA,  SEC,  AND,  XXX,  RLA,  NOP,  AND,  ROL,  RLA,
     RTI,  EOR,  XXX,  XXX,  NOP,  EOR,  LSR,  XXX,  PHA,  EOR,  LSR,  XXX,  JMP,  EOR,  LSR,  XXX,
-    BVC,  EOR,  XXX,  XXX,  NOP,  EOR,  LSR,  XXX,  CLI,  EOR,  XXX,  XXX,  XXX,  EOR,  LSR,  XXX,
+    BVC,  EOR,  XXX,  XXX,  NOP,  EOR,  LSR,  XXX,  CLI,  EOR,  XXX,  XXX,  NOP,  EOR,  LSR,  XXX,
     RTS,  ADC,  XXX,  RRA,  NOP,  ADC,  ROR,  RRA,  PLA,  ADC,  ROR,  XXX,  JMP,  ADC,  ROR,  RRA,
-    BVS,  ADC,  XXX,  RRA,  NOP,  ADC,  ROR,  RRA,  SEI,  ADC,  XXX,  RRA,  XXX,  ADC,  ROR,  RRA,
+    BVS,  ADC,  XXX,  RRA,  NOP,  ADC,  ROR,  RRA,  SEI,  ADC,  XXX,  RRA,  NOP,  ADC,  ROR,  RRA,
     NOP,  STA,  NOP,  SAX,  STY,  STA,  STX,  SAX,  DEY,  XXX,  TXA,  XXX,  STY,  STA,  STX,  SAX,
-    BCC,  STA,  XXX,  XXX,  STY,  STA,  STX,  SAX,  TYA,  STA,  TXS,  XXX,  XXX,  STA,  XXX,  XXX,
+    BCC,  STA,  XXX,  XXX,  STY,  STA,  STX,  SAX,  TYA,  STA,  TXS,  XXX,  NOP,  STA,  XXX,  XXX,
     LDY,  LDA,  LDX,  LAX,  LDY,  LDA,  LDX,  LAX,  TAY,  LDA,  TAX,  XXX,  LDY,  LDA,  LDX,  LAX,
     BCS,  LDA,  XXX,  LAX,  LDY,  LDA,  LDX,  LAX,  CLV,  LDA,  TSX,  XXX,  LDY,  LDA,  LDX,  LAX,
     CPY,  CMP,  NOP,  XXX,  CPY,  CMP,  DEC,  XXX,  INY,  CMP,  DEX,  AXS,  CPY,  CMP,  DEC,  XXX,
-    BNE,  CMP,  XXX,  XXX,  NOP,  CMP,  DEC,  XXX,  CLD,  CMP,  XXX,  XXX,  XXX,  CMP,  DEC,  XXX,
+    BNE,  CMP,  XXX,  XXX,  NOP,  CMP,  DEC,  XXX,  CLD,  CMP,  XXX,  XXX,  NOP,  CMP,  DEC,  XXX,
     CPX,  SBC,  NOP,  XXX,  CPX,  SBC,  INC,  XXX,  INX,  SBC,  NOP,  XXX,  CPX,  SBC,  INC,  XXX,
-    BEQ,  SBC,  XXX,  XXX,  NOP,  SBC,  INC,  XXX,  SED,  SBC,  XXX,  XXX,  XXX,  SBC,  INC,  XXX,
+    BEQ,  SBC,  XXX,  XXX,  NOP,  SBC,  INC,  XXX,  SED,  SBC,  XXX,  XXX,  NOP,  SBC,  INC,  XXX,
 };
 
 const int MODE_TABLE[256] = {
@@ -263,6 +263,13 @@ void CPU::parse() {
         a &= bval;
         setflags(FLAG_Z, !a);
         setflags(FLAG_N, a & 0x80);
+        break;
+    case ANC:
+        bval = getaddr(addr);
+        a &= bval;
+        setflags(FLAG_Z, !a);
+        setflags(FLAG_N, a & 0x80);
+        setflags(FLAG_C, a & 0x80);
         break;
     case ASL:
         wval = getaddr(addr);
