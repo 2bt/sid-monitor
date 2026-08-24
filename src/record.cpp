@@ -82,6 +82,10 @@ bool Record::load(const char* filename, int nr) {
             }
             states.emplace_back(s);
         }
+        if (states.empty()) {
+            printf("error: empty file\n");
+            return false;
+        }
         return true;
     }
 
