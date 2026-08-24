@@ -52,19 +52,26 @@ uint32_t swap(uint32_t v) { return  __builtin_bswap32(v); }
 bool Record::load(const char* filename, int nr) {
     *this = {};
 
-    // log
-    const char* dot = strrchr(filename, '.');
-    if (dot && strcmp(dot, ".txt") == 0) {
+    std::ifstream file(filename, std::ios::binary | std::ios::ate);
+    if (!file.is_open()) {
+        printf("error: could not open file\n");
+        return false;
+    }
+    auto pos = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    // SID files start with "PSID"; anything else is a hex register log
+    char magic[4];
+    file.read(magic, 4);
+    if (file.gcount() != 4 || memcmp(magic, "PSID", 4) != 0) {
+        file.clear();
+        file.seekg(0, std::ios::beg); // rewind past the magic peek
+
         song_name  = filename;
         speed      = 1;
         song_nr    = 1;
         song_count = 1;
 
-        std::ifstream file(filename);
-        if (!file.is_open()) {
-            printf("error: could not open file\n");
-            return false;
-        }
         std::string line;
         while (std::getline(file, line)) {
             State s;
@@ -75,20 +82,9 @@ bool Record::load(const char* filename, int nr) {
             }
             states.emplace_back(s);
         }
-//        for (State const& s : states) {
-//            for (uint8_t x : s.reg) printf(" %02X", x);
-//            printf("\n");
-//        }
         return true;
     }
 
-
-    std::ifstream file(filename, std::ios::binary | std::ios::ate);
-    if (!file.is_open()) {
-        printf("error: could not open file\n");
-        return false;
-    }
-    auto pos = file.tellg();
     std::vector<uint8_t> data(pos);
     file.seekg(0, std::ios::beg);
     file.read((char*) data.data(), pos);
