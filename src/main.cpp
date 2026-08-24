@@ -275,23 +275,33 @@ struct App : fx::App {
         for (int c = 0; c < CHANNEL_COUT; ++c) {
             if (!chan_active[c]) continue;
             int y = fx::screen_height() - (4 - c) * 24;
+            int x = 48*7 + 8;
+
 
             bool filter = (state.reg[23] & (1 << c)) > 0;
-            fx::printf(7 * 48 + 8, y, "%c", ".*"[filter]);
+            fx::printf(x, y, "| %c", ".*"[filter]);
+            x += 16*4;
 
             int   freq      = state.reg[c * 7 + 0] | (state.reg[c * 7 + 1] << 8);
             float real_freq = freq * 17734472.0f * (1.0f / (18 << 24));
             int   note      = int(57.5f + std::log2(real_freq / 440) * 12);
 
-            fx::printf(23 * 16 + 8, y, note > 0 ? "%c%c%d" : "...",
-                "CCDDEFFGGAAB"[note % 12],
-                "-#-#--#-#-#-"[note % 12],
-                note / 12,
-                note);
+            if (note > 0) {
+                fx::printf(x, y, "%02d %c%c%d",
+                    note,
+                    "CCDDEFFGGAAB"[note % 12],
+                    "-#-#--#-#-#-"[note % 12],
+                    note / 12);
+            }
+            else {
+                fx::printf(x, y, ".. ...");
+            }
+            x += 16*7;
+
 
             int control = state.reg[c * 7 + 4];
-            int pw = ((state.reg[c * 7 + 2] >> 4) & 0xf) | ((state.reg[c * 7 + 3] & 0xf) << 4);
-            fx::printf(27 * 16 + 8, y, "%c%c%c%c %c%c%c%c %02X",
+            int pw = state.reg[c * 7 + 2] | ((state.reg[c * 7 + 3] & 0xf) << 8);
+            fx::printf(x, y, "%c%c%c%c %c%c%c%c %03X",
                     "N."[!(control & 0x80)],
                     "P."[!(control & 0x40)],
                     "S."[!(control & 0x20)],
@@ -303,7 +313,8 @@ struct App : fx::App {
                     pw);
         }
         int filter = state.reg[24];
-        fx::printf(27 * 16 + 8, fx::screen_height() - 24, "%c%c%c",
+        int x = 48*7 + 8;
+        fx::printf(x, fx::screen_height() - 24, "| %c%c%c",
                 "H."[!(filter & 0x40)],
                 "B."[!(filter & 0x20)],
                 "L."[!(filter & 0x10)]);
